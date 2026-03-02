@@ -3,6 +3,7 @@ const { ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, Se
 const { ActionRowBuilder, StringSelectMenuBuilder } = require('@discordjs/builders');
 const userModel = require('../../models/user');
 const eggTypes = require('../../../config/eggTypes.json');
+const db = require('../../db');
 const fallbackLogger = require('../../utils/fallbackLogger');
 const createInteractionCollector = require('../../utils/collectorHelper');
 const safeReply = require('../../utils/safeReply');
@@ -20,7 +21,9 @@ function buildLeaderboardV2Components({
   sortChoices,
   selectedSort,
   showEggType = false,
+  showHostType = false,
   eggTypeChoices = [],
+  hostTypeChoices = [],
   expired = false,
   guildAvatarUrl = null
 }) {
@@ -65,6 +68,21 @@ function buildLeaderboardV2Components({
         )
       );
     }
+
+    if (showHostType && Array.isArray(hostTypeChoices) && hostTypeChoices.length > 0) {
+      const hostOptions = hostTypeChoices.slice(0, 25).map(opt => ({
+        label: String(opt.label),
+        value: String(opt.value)
+      }));
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('leaderboard-hosttype')
+            .setPlaceholder('Sort by host type...')
+            .addOptions(...hostOptions)
+        )
+      );
+    }
   }
 
   if (footer) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`_${String(footer)}${expired ? ' • View expired' : ''}_`));
@@ -97,15 +115,21 @@ module.exports = {
   },
    async autocomplete(interaction) {
      const eggTypes = require('../../../config/eggTypes.json');
+     const hostsConfig = require('../../../config/hosts.json');
      const autocomplete = require('../../utils/autocomplete');
      const base = [
        { id: 'eggs', name: 'Total Eggs' },
+       { id: 'hosts', name: 'Total Hosts' },
        { id: 'fastest', name: 'Fastest Catch' },
        { id: 'slowest', name: 'Slowest Catch' },
        { id: 'rarity', name: 'Egg Rarity' }
      ];
      const eggItems = eggTypes.map(e => ({ id: `eggtype_${e.id}`, name: `${e.name} Eggs` }));
-     const items = base.concat(eggItems);
+     const hostItems = Object.entries(hostsConfig.hosts || {}).map(([id, h]) => ({ 
+       id: `hosttype_${id}`, 
+       name: `${h.display} Hosts` 
+     }));
+     const items = base.concat(eggItems, hostItems);
      return autocomplete(interaction, items, { map: it => ({ name: it.name, value: it.id }), max: 25 });
    },
 
@@ -128,14 +152,34 @@ module.exports = {
     // If global subcommand requested, build server-level totals and show global ranking
     if (sub === 'global') {
       const sortOpt = interaction.options.getString('sort') || 'eggs';
+      const hostsConfig = require('../../../config/hosts.json');
+      
+      // Query all hosts from the hosts table
+      const allHosts = await db.knex('hosts').select('owner_id', 'host_type');
+      
+      // Build a map of owner_id -> {hostsByType: {type: count}, total: number}
+      const hostsByOwner = {};
+      for (const host of allHosts) {
+        const ownerId = String(host.owner_id);
+        if (!hostsByOwner[ownerId]) {
+          hostsByOwner[ownerId] = { hostsByType: {}, total: 0 };
+        }
+        const hostType = String(host.host_type);
+        hostsByOwner[ownerId].hostsByType[hostType] = (hostsByOwner[ownerId].hostsByType[hostType] || 0) + 1;
+        hostsByOwner[ownerId].total++;
+      }
+      
       const guildStats = {};
-      // Initialize containers: for eggs totals (per type), rarity, catchTimes
+      // Initialize containers: for eggs totals (per type), hosts, rarity, catchTimes
       for (const user of rows) {
         const data = user.data || {};
         const g = data.guilds || {};
         const stats = data.stats || {};
+        const userId = String(user.discord_id);
+        const userHosts = hostsByOwner[userId] || { hostsByType: {}, total: 0 };
+        
         for (const [gid, gd] of Object.entries(g)) {
-          guildStats[gid] = guildStats[gid] || { eggsByType: {}, total: 0, catchTimes: [] };
+          guildStats[gid] = guildStats[gid] || { eggsByType: {}, hostsByType: {}, total: 0, hostsTotal: 0, catchTimes: [] };
           try {
             const eggsObj = (gd && gd.eggs) || {};
             for (const [etype, count] of Object.entries(eggsObj)) {
@@ -144,6 +188,15 @@ module.exports = {
               guildStats[gid].total = (guildStats[gid].total || 0) + n;
             }
           } catch (e) { }
+          
+          // Add hosts for this user to this guild (hosts are global, so they count for every guild the user is in)
+          try {
+            for (const [htype, count] of Object.entries(userHosts.hostsByType)) {
+              guildStats[gid].hostsByType[htype] = (guildStats[gid].hostsByType[htype] || 0) + count;
+            }
+            guildStats[gid].hostsTotal = (guildStats[gid].hostsTotal || 0) + userHosts.total;
+          } catch (e) { }
+          
           // include user's catchTimes for this guild if user has presence here
           try {
             if (stats && stats.catchTimes && stats.catchTimes.length) {
@@ -159,6 +212,8 @@ module.exports = {
       // Sorting by requested option
       if (sortOpt === 'eggs') {
         entries.sort((a, b) => (b.info.total || 0) - (a.info.total || 0));
+      } else if (sortOpt === 'hosts') {
+        entries.sort((a, b) => (b.info.hostsTotal || 0) - (a.info.hostsTotal || 0));
       } else if (sortOpt === 'rarity') {
         entries.forEach(e => {
           let score = 0;
@@ -171,6 +226,9 @@ module.exports = {
       } else if (sortOpt.startsWith('eggtype_')) {
         const typeId = sortOpt.replace('eggtype_', '');
         entries.sort((a, b) => (b.info.eggsByType[typeId] || 0) - (a.info.eggsByType[typeId] || 0));
+      } else if (sortOpt.startsWith('hosttype_')) {
+        const typeId = sortOpt.replace('hosttype_', '');
+        entries.sort((a, b) => (b.info.hostsByType[typeId] || 0) - (a.info.hostsByType[typeId] ||0));
       } else if (sortOpt === 'fastest') {
         entries.forEach(e => { e.info.best = (e.info.catchTimes && e.info.catchTimes.length) ? Math.min(...e.info.catchTimes) : null; });
         entries.filter(e => e.info.best !== null).sort((a, b) => a.info.best - b.info.best);
@@ -189,6 +247,7 @@ module.exports = {
       }
 
       const top = entries.slice(0, 10);
+      const emojiMap = require('../../../config/emojis.json');
       let desc = '';
       for (let i = 0; i < top.length; i++) {
         const entry = top[i];
@@ -220,11 +279,17 @@ module.exports = {
         // Format value per sort
         let value = '';
         if (sortOpt === 'eggs') value = `**${entry.info.total || 0} eggs**`;
+        else if (sortOpt === 'hosts') value = `**${entry.info.hostsTotal || 0} hosts**`;
         else if (sortOpt === 'rarity') value = `**${entry.info.rarityScore || 0} rarity**`;
         else if (sortOpt.startsWith('eggtype_')) {
           const t = sortOpt.replace('eggtype_', '');
           const eggType = eggTypes.find(e => e.id === t);
           value = eggType ? `${eggType.emoji} **${entry.info.eggsByType[t] || 0}**` : `**${entry.info.eggsByType[t] || 0}**`;
+        } else if (sortOpt.startsWith('hosttype_')) {
+          const t = sortOpt.replace('hosttype_', '');
+          const hostType = hostsConfig.hosts[t];
+          const emoji = hostType && hostType.emoji && emojiMap[hostType.emoji] ? emojiMap[hostType.emoji] : '';
+          value = `${emoji} **${entry.info.hostsByType[t] || 0}**`;
         } else if (sortOpt === 'fastest') value = (entry.info.best !== null && typeof entry.info.best === 'number') ? `**${(entry.info.best/1000).toFixed(2)}s**` : 'No data';
         else if (sortOpt === 'slowest') value = (entry.info.worst !== null && typeof entry.info.worst === 'number') ? `**${(entry.info.worst/1000/3600).toFixed(2)}h**` : 'No data';
         desc += `#${i+1} ${displayName} — ${value}\n`;
@@ -233,10 +298,24 @@ module.exports = {
       const totalServers = entries.length;
       const idx = entries.findIndex(e => e.gid === String(guildId));
       const rank = idx >= 0 ? idx + 1 : 'Unranked';
-      const currentTotal = (guildStats[String(guildId)] && ((sortOpt === 'eggs') ? guildStats[String(guildId)].total : (sortOpt.startsWith('eggtype_') ? (guildStats[String(guildId)].eggsByType[sortOpt.replace('eggtype_', '')] || 0) : (sortOpt === 'rarity' ? (() => { let s=0; for(const t of eggTypes){ s += (guildStats[String(guildId)].eggsByType[t.id]||0)*(t.rarity||1);} return s; })() : 0)))) || 0;
+      const currentTotal = (guildStats[String(guildId)] && (() => {
+        if (sortOpt === 'eggs') return guildStats[String(guildId)].total;
+        if (sortOpt === 'hosts') return guildStats[String(guildId)].hostsTotal;
+        if (sortOpt.startsWith('eggtype_')) return guildStats[String(guildId)].eggsByType[sortOpt.replace('eggtype_', '')] || 0;
+        if (sortOpt.startsWith('hosttype_')) return guildStats[String(guildId)].hostsByType[sortOpt.replace('hosttype_', '')] || 0;
+        if (sortOpt === 'rarity') {
+          let s = 0;
+          for (const t of eggTypes) {
+            s += (guildStats[String(guildId)].eggsByType[t.id] || 0) * (t.rarity || 1);
+          }
+          return s;
+        }
+        return 0;
+      })()) || 0;
 
       const sortChoices = [
         { label: 'Total Eggs', value: 'eggs' },
+        { label: 'Total Hosts', value: 'hosts' },
         { label: 'Fastest Catch', value: 'fastest' },
         { label: 'Slowest Catch', value: 'slowest' },
         { label: 'Egg Rarity', value: 'rarity' }
@@ -245,7 +324,11 @@ module.exports = {
         label: `${e.name} Eggs`.length > 25 ? `${e.name} Eggs`.slice(0, 22) + '...' : `${e.name} Eggs`,
         value: `eggtype_${e.id}`.length > 25 ? `eggtype_${e.id}`.slice(0, 22) + '...' : `eggtype_${e.id}`
       }));
-      const sortLabel = ({ eggs: 'Total Eggs', rarity: 'Egg Rarity', fastest: 'Fastest Catch', slowest: 'Slowest Catch' }[sortOpt] || (sortOpt.startsWith('eggtype_') ? `Egg Type ${sortOpt.replace('eggtype_','')}` : sortOpt));
+      const hostTypeChoices = Object.entries(hostsConfig.hosts || {}).map(([id, h]) => ({
+        label: `${h.display} Hosts`.length > 25 ? `${h.display} Hosts`.slice(0, 22) + '...' : `${h.display} Hosts`,
+        value: `hosttype_${id}`.length > 25 ? `hosttype_${id}`.slice(0, 22) + '...' : `hosttype_${id}`
+      }));
+      const sortLabel = ({ eggs: 'Total Eggs', hosts: 'Total Hosts', rarity: 'Egg Rarity', fastest: 'Fastest Catch', slowest: 'Slowest Catch' }[sortOpt] || (sortOpt.startsWith('eggtype_') ? `Egg Type ${sortOpt.replace('eggtype_','')}` : (sortOpt.startsWith('hosttype_') ? `Host Type ${sortOpt.replace('hosttype_','')}` : sortOpt)));
       const footer = `This server: #${rank} / ${totalServers} — ${currentTotal} ${sortLabel ? `(${sortLabel})` : ''}`;
       const guildAvatarUrl = interaction.guild && typeof interaction.guild.iconURL === 'function' ? interaction.guild.iconURL({ size: 256 }) : null;
       const components = buildLeaderboardV2Components({
@@ -255,7 +338,9 @@ module.exports = {
         sortChoices,
         selectedSort: sortOpt,
         showEggType: sortOpt === 'eggs',
+        showHostType: sortOpt === 'hosts',
         eggTypeChoices,
+        hostTypeChoices,
         expired: false,
         guildAvatarUrl
       });
@@ -280,6 +365,10 @@ module.exports = {
           const newSort = i.values[0];
           i.options = { getString: () => newSort, getSubcommand: () => 'global' };
           await module.exports.executeInteraction(i);
+        } else if (i.customId === 'leaderboard-hosttype') {
+          const newSort = i.values[0];
+          i.options = { getString: () => newSort, getSubcommand: () => 'global' };
+          await module.exports.executeInteraction(i);
         }
       });
       collector.on('end', async () => {
@@ -293,7 +382,9 @@ module.exports = {
                 sortChoices,
                 selectedSort: sortOpt,
                 showEggType: sortOpt === 'eggs',
+                showHostType: sortOpt === 'hosts',
                 eggTypeChoices,
+                hostTypeChoices,
                 expired: true,
                 guildAvatarUrl
               })
@@ -305,6 +396,23 @@ module.exports = {
     }
 
     // Build per-user leaderboard data for the server
+    // First, query all hosts from the hosts table
+    const hostModel = require('../../models/host');
+    const hostsConfig = require('../../../config/hosts.json');
+    const allHosts = await db.knex('hosts').select('owner_id', 'host_type');
+    
+    // Build a map of owner_id -> {hostsByType: {type: count}, total: number}
+    const hostsByOwner = {};
+    for (const host of allHosts) {
+      const ownerId = String(host.owner_id);
+      if (!hostsByOwner[ownerId]) {
+        hostsByOwner[ownerId] = { hostsByType: {}, total: 0 };
+      }
+      const hostType = String(host.host_type);
+      hostsByOwner[ownerId].hostsByType[hostType] = (hostsByOwner[ownerId].hostsByType[hostType] || 0) + 1;
+      hostsByOwner[ownerId].total++;
+    }
+    
     let leaderboard = [];
     for (const user of rows) {
       const data = user.data || {};
@@ -316,14 +424,20 @@ module.exports = {
       const eggs = guildData.eggs || {};
       const eggsTotal = Object.values(eggs).reduce((a, b) => a + b, 0);
       
-      // Skip users with 0 eggs in this guild
-      if (eggsTotal === 0) continue;
+      // Get host data for this user
+      const userId = String(user.discord_id);
+      const userHosts = hostsByOwner[userId] || { hostsByType: {}, total: 0 };
+      
+      // Skip users with 0 eggs AND 0 hosts in this guild
+      if (eggsTotal === 0 && userHosts.total === 0) continue;
       
       const stats = guildData.stats || {};
       let entry = {
         id: user.discord_id,
         eggsTotal,
         eggs,
+        hostsTotal: userHosts.total,
+        hosts: userHosts.hostsByType,
         fastest: stats.catchTimes && stats.catchTimes.length ? Math.min(...stats.catchTimes) : null,
         slowest: stats.catchTimes && stats.catchTimes.length ? Math.max(...stats.catchTimes) : null
       };
@@ -332,6 +446,8 @@ module.exports = {
     // Sorting
     if (sort === 'eggs') {
       leaderboard.sort((a, b) => b.eggsTotal - a.eggsTotal);
+    } else if (sort === 'hosts') {
+      leaderboard.sort((a, b) => b.hostsTotal - a.hostsTotal);
     } else if (sort === 'fastest') {
       leaderboard = leaderboard.filter(e => e.fastest !== null);
       leaderboard.sort((a, b) => a.fastest - b.fastest);
@@ -350,16 +466,22 @@ module.exports = {
     } else if (sort.startsWith('eggtype_')) {
       const type = sort.replace('eggtype_', '');
       leaderboard.sort((a, b) => (b.eggs[type] || 0) - (a.eggs[type] || 0));
+    } else if (sort.startsWith('hosttype_')) {
+      const type = sort.replace('hosttype_', '');
+      leaderboard.sort((a, b) => (b.hosts[type] || 0) - (a.hosts[type] || 0));
     }
     // Top 10
     leaderboard = leaderboard.slice(0, 10);
     // Format output as embed
+    const emojiMap = require('../../../config/emojis.json');
     let desc = '';
     for (let i = 0; i < leaderboard.length; i++) {
       const entry = leaderboard[i];
       let userTag = `<@${entry.id}>`;
       if (sort === 'eggs') {
         desc += `#${i + 1} ${userTag} — **${entry.eggsTotal} eggs**\n`;
+      } else if (sort === 'hosts') {
+        desc += `#${i + 1} ${userTag} — **${entry.hostsTotal} hosts**\n`;
       } else if (sort === 'fastest') {
         desc += `#${i + 1} ${userTag} — **${(entry.fastest / 1000).toFixed(2)}s**\n`;
       } else if (sort === 'slowest') {
@@ -370,10 +492,16 @@ module.exports = {
         const type = sort.replace('eggtype_', '');
         const eggType = eggTypes.find(e => e.id === type);
         desc += `#${i + 1} ${userTag} — ${eggType.emoji} **${entry.eggs[type] || 0}**\n`;
+      } else if (sort.startsWith('hosttype_')) {
+        const type = sort.replace('hosttype_', '');
+        const hostType = hostsConfig.hosts[type];
+        const emoji = hostType && hostType.emoji && emojiMap[hostType.emoji] ? emojiMap[hostType.emoji] : '';
+        desc += `#${i + 1} ${userTag} — ${emoji} **${entry.hosts[type] || 0}**\n`;
       }
     }
      const sortChoices = [
        { label: 'Total Eggs', value: 'eggs' },
+       { label: 'Total Hosts', value: 'hosts' },
        { label: 'Fastest Catch', value: 'fastest' },
        { label: 'Slowest Catch', value: 'slowest' },
        { label: 'Egg Rarity', value: 'rarity' }
@@ -382,7 +510,11 @@ module.exports = {
       label: `${e.name} Eggs`.length > 25 ? `${e.name} Eggs`.slice(0, 22) + '...' : `${e.name} Eggs`,
       value: `eggtype_${e.id}`.length > 25 ? `eggtype_${e.id}`.slice(0, 22) + '...' : `eggtype_${e.id}`
     }));
-    const footer = `Sorted by: ${sortChoices.concat(eggTypeChoices).find(c => c.value === sort)?.label || sort}`;
+    const hostTypeChoices = Object.entries(hostsConfig.hosts || {}).map(([id, h]) => ({
+      label: `${h.display} Hosts`.length > 25 ? `${h.display} Hosts`.slice(0, 22) + '...' : `${h.display} Hosts`,
+      value: `hosttype_${id}`.length > 25 ? `hosttype_${id}`.slice(0, 22) + '...' : `hosttype_${id}`
+    }));
+    const footer = `Sorted by: ${sortChoices.concat(eggTypeChoices, hostTypeChoices).find(c => c.value === sort)?.label || sort}`;
     const guildAvatarUrl = interaction.guild && typeof interaction.guild.iconURL === 'function' ? interaction.guild.iconURL({ size: 256 }) : null;
     const components = buildLeaderboardV2Components({
       title: 'Leaderboard',
@@ -391,7 +523,9 @@ module.exports = {
       sortChoices,
       selectedSort: sort,
       showEggType: sort === 'eggs',
+      showHostType: sort === 'hosts',
       eggTypeChoices,
+      hostTypeChoices,
       expired: false,
       guildAvatarUrl
     });
@@ -415,6 +549,10 @@ module.exports = {
           const newSort = i.values[0];
           i.options = { getString: () => newSort };
           await module.exports.executeInteraction(i);
+        } else if (i.customId === 'leaderboard-hosttype') {
+          const newSort = i.values[0];
+          i.options = { getString: () => newSort };
+          await module.exports.executeInteraction(i);
         }
       });
       collector.on('end', async () => {
@@ -428,7 +566,9 @@ module.exports = {
                 sortChoices,
                 selectedSort: sort,
                 showEggType: false,
+                showHostType: false,
                 eggTypeChoices,
+                hostTypeChoices,
                 expired: true,
                 guildAvatarUrl
               })

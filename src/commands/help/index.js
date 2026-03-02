@@ -306,19 +306,28 @@ module.exports = {
     let pages = buildPagesForCategory(initialCategory);
     let page = 0;
 
+    // Defer with ephemeral flag before sending Components v2
+    const isEphemeral = cmd.ephemeral === true;
     try {
-      logger.info('Sending help command', { cmdEphemeral: cmd.ephemeral, isTrue: cmd.ephemeral === true });
+      await interaction.deferReply({ ephemeral: isEphemeral });
+    } catch (e) {
+      logger.error('Failed to defer help reply', { error: e && (e.stack || e), message: e && e.message });
+      throw e;
+    }
+
+    try {
       await safeReply(interaction, {
         components: buildHelpComponents(currentCategory, pages, page, false, interaction.client),
-        flags: MessageFlags.IsComponentsV2,
-        ephemeral: cmd.ephemeral === true
+        flags: MessageFlags.IsComponentsV2
+        // ephemeral is set by deferReply, don't pass it to editReply
       }, { loggerName: 'command:help' });
     } catch (e) {
       try {
-        logger.warn('Help V2 payload failed, using plain text fallback', { error: e && (e.stack || e) });
+        logger.error('Help V2 payload failed, using plain text fallback', { error: e && (e.stack || e), message: e && e.message });
       } catch (_) {}
       await safeReply(interaction, {
-        content: 'Help UI failed to render with components. Please try again.'
+        content: 'Help UI failed to render with components. Please try again.',
+        ephemeral: isEphemeral
       }, { loggerName: 'command:help' });
       return;
     }
