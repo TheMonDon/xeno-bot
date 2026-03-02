@@ -82,11 +82,15 @@ module.exports = {
     try { message = await interaction.fetchReply(); } catch (_) { return; }
     if (!message || typeof message.createMessageComponentCollector !== 'function') return;
     const collector = message.createMessageComponentCollector({
-      filter: i => i.user.id === interaction.user.id && i.customId === customId,
-      time: 120000
+      filter: i => i.customId === customId,
+      time: 60_000
     });
 
     collector.on('collect', async i => {
+      if (i.user.id !== interaction.user.id) {
+        try { await i.reply({ content: 'Only the command user can refresh this view.', ephemeral: true }); } catch (_) {}
+        return;
+      }
       try {
         await i.update(buildPingPayload(i, customId));
       } catch (e) {

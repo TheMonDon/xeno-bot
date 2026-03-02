@@ -352,12 +352,15 @@ module.exports = {
             const logger = require('../../utils/logger').get('command:eggs');
 
             const collector = msg.createMessageComponentCollector({
-              filter: i => i.user.id === discordId,
               time: 300_000
             });
 
             collector.on('collect', async i => {
               try {
+                if (i.user.id !== discordId) {
+                  try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
+                  return;
+                }
                 // Pagination
                 if (i.customId === 'eggs-prev-page') {
                   currentPage = Math.max(0, currentPage - 1);
@@ -475,11 +478,14 @@ module.exports = {
             let currentPage = 0;
             const logger = require('../../utils/logger').get('command:eggs');
             const collector = msg.createMessageComponentCollector({
-              filter: i => i.user.id === discordId,
               time: 300_000
             });
             collector.on('collect', async i => {
               try {
+                if (i.user.id !== discordId) {
+                  try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
+                  return;
+                }
                 if (i.customId === 'eggs-view-list') {
                   rows = await hatchManager.listHatches(discordId, guildId);
                   currentPage = 0;
@@ -596,11 +602,14 @@ module.exports = {
             let currentPage = 0;
             const logger = require('../../utils/logger').get('command:eggs');
             const collector = msg.createMessageComponentCollector({
-              filter: i => i.user.id === discordId,
               time: 300_000
             });
             collector.on('collect', async i => {
               try {
+                if (i.user.id !== discordId) {
+                  try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
+                  return;
+                }
                 if (i.customId === 'eggs-view-list') {
                   rows = await hatchManager.listHatches(discordId, guildId);
                   currentPage = 0;

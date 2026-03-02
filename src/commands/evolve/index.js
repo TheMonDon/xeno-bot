@@ -398,7 +398,7 @@ module.exports = {
       if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
 
       const collector = msg.createMessageComponentCollector({
-        filter: i => i.user.id === interaction.user.id && String(i.customId || '').startsWith('evolve-'),
+        filter: i => String(i.customId || '').startsWith('evolve-'),
         time: 120_000
       });
       let currentListPage = 0;
@@ -406,6 +406,10 @@ module.exports = {
 
       collector.on('collect', async i => {
         try {
+          if (i.user.id !== interaction.user.id) {
+            try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
+            return;
+          }
           const userIdInner = String(i.user.id);
           if (i.customId === 'evolve-list-prev-page' || i.customId === 'evolve-list-next-page') {
             const isPrev = i.customId === 'evolve-list-prev-page';

@@ -296,13 +296,17 @@ module.exports = {
         if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
 
         const collector = msg.createMessageComponentCollector({
-          filter: i => i.user.id === userId && i.customId === 'hive-create-prompt',
+          filter: i => i.customId === 'hive-create-prompt',
           time: 60_000,
           max: 1
         });
 
         collector.on('collect', async i => {
           try {
+            if (i.user.id !== userId) {
+              try { await i.reply({ content: 'Only the command user can create a hive.', ephemeral: true }); } catch (_) {}
+              return;
+            }
             let xenos = [];
             try { xenos = await xenomorphModel.getXenosByOwner(userId); } catch (e) { xenos = []; }
             const hasEvolved = Array.isArray(xenos) && xenos.some(x => (x.role && x.role !== 'egg') || (x.stage && x.stage !== 'egg'));
@@ -386,13 +390,17 @@ module.exports = {
             if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
 
             const collector = msg.createMessageComponentCollector({
-              filter: i => i.user.id === userId && i.customId === 'hive-create-prompt',
+              filter: i => i.customId === 'hive-create-prompt',
               time: 60_000,
               max: 1
             });
 
             collector.on('collect', async i => {
               try {
+                if (i.user.id !== userId) {
+                  try { await i.reply({ content: 'Only the command user can create a hive.', ephemeral: true }); } catch (_) {}
+                  return;
+                }
                 let xenos = [];
                 try { xenos = await xenomorphModel.getXenosByOwner(userId); } catch (e) { xenos = []; }
                 const hasEvolved = Array.isArray(xenos) && xenos.some(x => (x.role && x.role !== 'egg') || (x.stage && x.stage !== 'egg'));
@@ -489,12 +497,15 @@ module.exports = {
         let currentScreen = initialScreen;
 
         const collector = msg.createMessageComponentCollector({
-          filter: i => i.user.id === userId,
           time: 300_000
         });
 
         collector.on('collect', async i => {
           try {
+            if (i.user.id !== userId) {
+              try { await i.reply({ content: 'Only the hive owner can interact with this view.', ephemeral: true }); } catch (_) {}
+              return;
+            }
             if (i.customId === HIVE_ACTION_REFRESH_ID) {
               const refreshedHive = await hiveModel.getHiveByUser(String(targetUser.id), guildId);
               if (refreshedHive) viewHive = refreshedHive;
@@ -616,12 +627,15 @@ module.exports = {
         let currentScreen = 'types';
 
         const collector = msg.createMessageComponentCollector({
-          filter: i => i.user.id === userId,
           time: 300_000
         });
 
         collector.on('collect', async i => {
           try {
+            if (i.user.id !== userId) {
+              try { await i.reply({ content: 'Only the hive owner can interact with this view.', ephemeral: true }); } catch (_) {}
+              return;
+            }
             if (i.customId === HIVE_ACTION_REFRESH_ID) {
               const refreshedHive = await hiveModel.getHiveByUser(userId, guildId);
               if (refreshedHive) viewHive = refreshedHive;
