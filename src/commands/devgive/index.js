@@ -14,6 +14,32 @@ function resolveOwnerId() {
   return process.env.OWNER || process.env.BOT_OWNER || process.env.OWNER_ID || null;
 }
 
+function resolveTesterRoles() {
+  try {
+    if (process.env.BOT_CONFIG_PATH) {
+      try { const bc = require(process.env.BOT_CONFIG_PATH); if (bc && Array.isArray(bc.testerRoles)) return bc.testerRoles.map(r => String(r)); } catch (e) {}
+    }
+  } catch (e) {}
+  return [];
+}
+
+function isDeveloper(interaction) {
+  const ownerId = resolveOwnerId();
+  if (ownerId && String(interaction.user.id) === String(ownerId)) return true;
+  
+  const testerRoles = resolveTesterRoles();
+  if (testerRoles.length > 0 && interaction.member && interaction.member.roles) {
+    if (typeof interaction.member.roles.has === 'function') {
+      return testerRoles.some(roleId => interaction.member.roles.has(roleId));
+    }
+    if (Array.isArray(interaction.member.roles.cache)) {
+      return testerRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+    }
+  }
+  
+  return false;
+}
+
 module.exports = {
   name: cmd.name,
   description: cmd.description,
@@ -71,8 +97,7 @@ module.exports = {
   },
   async autocomplete(interaction) {
     try {
-      const ownerId = resolveOwnerId();
-      if (!ownerId || String(interaction.user.id) !== String(ownerId)) return interaction.respond([]);
+      if (!isDeveloper(interaction)) return interaction.respond([]);
       
       const type = (() => { try { return interaction.options.getString('type'); } catch (_) { return null; } })();
       const focused = interaction.options.getFocused ? interaction.options.getFocused(true) : null;
@@ -129,9 +154,8 @@ module.exports = {
   },
   async executeInteraction(interaction) {
     const safeReply = require('../../utils/safeReply');
-    const ownerId = resolveOwnerId();
-    if (!ownerId || String(interaction.user.id) !== String(ownerId)) {
-      await safeReply(interaction, { content: 'This command is owner-only.', ephemeral: true }, { loggerName: 'command:devgive' });
+    if (!isDeveloper(interaction)) {
+      await safeReply(interaction, { content: 'This command is developer-only (owner or tester role required).', ephemeral: true }, { loggerName: 'command:devgive' });
       return;
     }
     

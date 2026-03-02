@@ -1,7 +1,7 @@
 {
   "pathways": {
     "standard": {
-      "stages": ["facehugger", "drone", "warrior", "praetorian", "queen"],
+      "stages": ["facehugger", "runner_facehugger", "drone", "warrior", "praetorian", "queen"],
       "description": "Standard human-host evolution pathway"
     },
     "dog": {
@@ -58,6 +58,7 @@
   "requirements": {
     "standard": {
       "facehugger": { "to": "drone", "cost_jelly": 0, "requires_host_types": ["human"] },
+      "runner_facehugger": { "to": "drone", "cost_jelly": 0, "requires_host_types": ["human"] },
       "drone": { "to": "warrior", "cost_jelly": 10 },
       "warrior": { "to": "praetorian", "cost_jelly": 25 },
       "praetorian": { "to": "queen", "cost_jelly": 50 }
@@ -87,6 +88,7 @@
   "roles": {
     "egg": { "display": "Egg", "emoji": "egg" },
     "facehugger": { "display": "Facehugger", "emoji": "facehugger" },
+    "runner_facehugger": { "display": "Runner Facehugger", "emoji": "facehugger" },
     "drone": { "display": "Drone", "emoji": "drone" },
     "warrior": { "display": "Warrior", "emoji": "warrior" },
     "praetorian": { "display": "Praetorian", "emoji": "praetorian" },

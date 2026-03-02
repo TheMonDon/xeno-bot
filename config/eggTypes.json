@@ -63,7 +63,7 @@
     "price": 50000,
     "sell": 25,
     "hatch": 300,
-    "next_stage": "facehugger"
+    "next_stage": "runner_facehugger"
   },
   {
     "id": "predalien",

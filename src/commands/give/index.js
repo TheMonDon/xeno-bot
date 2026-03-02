@@ -8,6 +8,24 @@ const cmd = getCommandConfig('give') || {
   description: 'Give items to users (admin only)'
 };
 
+function isDeveloper(interaction) {
+  const cfg = require('../../../config/config.json');
+  const ownerId = (cfg && cfg.owner) ? String(cfg.owner) : null;
+  if (ownerId && interaction.user.id === ownerId) return true;
+  
+  const testerRoles = (cfg && Array.isArray(cfg.testerRoles)) ? cfg.testerRoles.map(r => String(r)) : [];
+  if (testerRoles.length > 0 && interaction.member && interaction.member.roles) {
+    if (typeof interaction.member.roles.has === 'function') {
+      return testerRoles.some(roleId => interaction.member.roles.has(roleId));
+    }
+    if (interaction.member.roles.cache) {
+      return testerRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+    }
+  }
+  
+  return false;
+}
+
 module.exports = {
   name: cmd.name,
   description: cmd.description,
@@ -30,11 +48,9 @@ module.exports = {
     const sub = (() => { try { return interaction.options.getSubcommand(); } catch (e) { return null; } })();
     const subCfg = sub ? (getCommandConfig(`give ${sub}`) || getCommandConfig(`give.${sub}`)) : null;
     if (subCfg && subCfg.developerOnly) {
-      const cfg = require('../../../config/config.json');
-      const ownerId = (cfg && cfg.owner) ? String(cfg.owner) : null;
-      if (!ownerId || interaction.user.id !== ownerId) {
+      if (!isDeveloper(interaction)) {
         const safeReply = require('../../utils/safeReply');
-        await safeReply(interaction, { content: 'Only the bot developer/owner can run this subcommand.', ephemeral: true }, { loggerName: 'command:give' });
+        await safeReply(interaction, { content: 'Only bot developers/testers can run this subcommand.', ephemeral: true }, { loggerName: 'command:give' });
         return;
       }
     }

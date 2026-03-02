@@ -1,6 +1,7 @@
 {
   "prefix": "xen!",
   "owner": "",
+  "testerRoles": ["1477989574591516777"],
   "presence": {
     "activities": [
       "Playing with the hive",

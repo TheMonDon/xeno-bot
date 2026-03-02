@@ -19,6 +19,24 @@ const emojisCfg = require('../../../config/emojis.json');
 const cmd = getCommandConfig('emojis') || { name: 'emojis', description: 'View all emojis in the bot' };
 const EMOJIS_PER_PAGE = 20;
 
+function isDeveloper(interaction) {
+  const cfg = require('../../../config/config.json');
+  const ownerId = (cfg && cfg.owner) ? String(cfg.owner) : null;
+  if (ownerId && interaction.user.id === ownerId) return true;
+  
+  const testerRoles = (cfg && Array.isArray(cfg.testerRoles)) ? cfg.testerRoles.map(r => String(r)) : [];
+  if (testerRoles.length > 0 && interaction.member && interaction.member.roles) {
+    if (typeof interaction.member.roles.has === 'function') {
+      return testerRoles.some(roleId => interaction.member.roles.has(roleId));
+    }
+    if (interaction.member.roles.cache) {
+      return testerRoles.some(roleId => interaction.member.roles.cache.has(roleId));
+    }
+  }
+  
+  return false;
+}
+
 function buildEmojiPage({ pageIdx = 0, expired = false, client = null }) {
   const emojiEntries = Object.entries(emojisCfg || {});
   const totalPages = Math.ceil(emojiEntries.length / EMOJIS_PER_PAGE);
@@ -86,10 +104,8 @@ module.exports = {
   async executeInteraction(interaction) {
     const subCfg = getCommandConfig(`emojis`);
     if (subCfg && subCfg.developerOnly) {
-      const cfg = require('../../../config/config.json');
-      const ownerId = (cfg && cfg.owner) ? String(cfg.owner) : null;
-      if (!ownerId || interaction.user.id !== ownerId) {
-        await safeReply(interaction, { content: 'Only the bot developer/owner can run this command.', ephemeral: true }, { loggerName: 'command:emojis' });
+      if (!isDeveloper(interaction)) {
+        await safeReply(interaction, { content: 'Only bot developers/testers can run this command.', ephemeral: true }, { loggerName: 'command:emojis' });
         return;
       }
     }
