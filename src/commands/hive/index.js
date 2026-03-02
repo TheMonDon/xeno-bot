@@ -2,7 +2,7 @@ const { ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, Se
 const { ActionRowBuilder, SecondaryButtonBuilder, PrimaryButtonBuilder, DangerButtonBuilder } = require('@discordjs/builders');
 const hiveModel = require('../../models/hive');
 const xenomorphModel = require('../../models/xenomorph');
-const userResources = require('../../models/userResources');
+const userModel = require('../../models/user');
 const { getCommandConfig, buildSubcommandOptions } = require('../../utils/commandsConfig');
 const { addV2TitleWithBotThumbnail } = require('../../utils/componentsV2');
 const hiveTypes = require('../../../config/hiveTypes.json');
@@ -473,7 +473,8 @@ module.exports = {
         } catch (e) {
           // Silently fail on database errors for optional tables
         }
-        let resources = await userResources.getResources(userId);
+        const royalJelly = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+        let resources = { royal_jelly: royalJelly };
 
         await safeReply(interaction, {
           components: buildHiveScreen({ screen: initialScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, client: interaction.client }),
@@ -499,7 +500,8 @@ module.exports = {
               if (refreshedHive) viewHive = refreshedHive;
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
               milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => milestones);
-              resources = await userResources.getResources(userId);
+              let rjRefresh = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              resources = { royal_jelly: rjRefresh };
               await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: '✅ Refreshed hive data.', client: interaction.client }) });
               return;
             }
@@ -510,15 +512,17 @@ module.exports = {
                 return;
               }
               const cost = 50;
-              resources = await userResources.getResources(userId);
-              if ((resources.royal_jelly || 0) < cost) {
+              let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              if (rj < cost) {
+                resources = { royal_jelly: rj };
                 await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly. Need ${formatNumber(cost)}.`, client: interaction.client }) });
                 return;
               }
-              await userResources.modifyResources(userId, { royal_jelly: -cost });
+              await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -cost);
               await hiveModel.updateHiveById(viewHive.id, { jelly_production_per_hour: (Number(viewHive.jelly_production_per_hour || 0) + 1) });
               viewHive = { ...viewHive, jelly_production_per_hour: Number(viewHive.jelly_production_per_hour || 0) + 1 };
-              resources = await userResources.getResources(userId);
+              rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              resources = { royal_jelly: rj };
               await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Queen upgraded. +1 jelly/hour (spent ${formatNumber(cost)} RJ).`, client: interaction.client }) });
               return;
             }
@@ -547,20 +551,22 @@ module.exports = {
                 return;
               }
 
-              resources = await userResources.getResources(userId);
-              if ((resources.royal_jelly || 0) < candidate.cost) {
+              let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              if (rj < candidate.cost) {
+                resources = { royal_jelly: rj };
                 await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly for ${candidate.cfg.display}. Need ${formatNumber(candidate.cost)}.`, client: interaction.client }) });
                 return;
               }
 
-              await userResources.modifyResources(userId, { royal_jelly: -candidate.cost });
+              await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -candidate.cost);
               if (candidate.row) {
                 await db.knex('hive_modules').where({ id: candidate.row.id }).update({ level: candidate.level + 1, updated_at: db.knex.fn.now() });
               } else {
                 await db.knex('hive_modules').insert({ hive_id: viewHive.id, module_key: candidate.moduleKey, level: 1 });
               }
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
-              resources = await userResources.getResources(userId);
+              let rjAfterModuleUpgrade = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              resources = { royal_jelly: rjAfterModuleUpgrade };
               await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Upgraded ${candidate.cfg.display} to level ${candidate.level + 1}.`, client: interaction.client }) });
               return;
             }
@@ -593,7 +599,8 @@ module.exports = {
         } catch (e) {
           // Silently fail on database errors for optional tables
         }
-        let resources = await userResources.getResources(userId);
+        const royalJelly2 = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+        let resources = { royal_jelly: royalJelly2 };
         const canAct = true;
 
         await safeReply(interaction, {
@@ -620,22 +627,25 @@ module.exports = {
               if (refreshedHive) viewHive = refreshedHive;
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
               milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => milestones);
-              resources = await userResources.getResources(userId);
+              let rjQueenRefresh = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              resources = { royal_jelly: rjQueenRefresh };
               await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: '✅ Refreshed hive data.', client: interaction.client }) });
               return;
             }
 
             if (i.customId === HIVE_ACTION_UPGRADE_QUEEN_ID) {
               const cost = 50;
-              resources = await userResources.getResources(userId);
-              if ((resources.royal_jelly || 0) < cost) {
+              let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              if (rj < cost) {
+                resources = { royal_jelly: rj };
                 await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly. Need ${formatNumber(cost)}.`, client: interaction.client }) });
                 return;
               }
-              await userResources.modifyResources(userId, { royal_jelly: -cost });
+              await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -cost);
               await hiveModel.updateHiveById(viewHive.id, { jelly_production_per_hour: (Number(viewHive.jelly_production_per_hour || 0) + 1) });
               viewHive = { ...viewHive, jelly_production_per_hour: Number(viewHive.jelly_production_per_hour || 0) + 1 };
-              resources = await userResources.getResources(userId);
+              rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              resources = { royal_jelly: rj };
               await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Queen upgraded. +1 jelly/hour (spent ${formatNumber(cost)} RJ).`, client: interaction.client }) });
               return;
             }
@@ -659,20 +669,22 @@ module.exports = {
                 return;
               }
 
-              resources = await userResources.getResources(userId);
-              if ((resources.royal_jelly || 0) < candidate.cost) {
+              let rjCheck = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              if (rjCheck < candidate.cost) {
+                resources = { royal_jelly: rjCheck };
                 await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly for ${candidate.cfg.display}. Need ${formatNumber(candidate.cost)}.`, client: interaction.client }) });
                 return;
               }
 
-              await userResources.modifyResources(userId, { royal_jelly: -candidate.cost });
+              await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -candidate.cost);
               if (candidate.row) {
                 await db.knex('hive_modules').where({ id: candidate.row.id }).update({ level: candidate.level + 1, updated_at: db.knex.fn.now() });
               } else {
                 await db.knex('hive_modules').insert({ hive_id: viewHive.id, module_key: candidate.moduleKey, level: 1 });
               }
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
-              resources = await userResources.getResources(userId);
+              let rjAfterUpgrade = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+              resources = { royal_jelly: rjAfterUpgrade };
               await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Upgraded ${candidate.cfg.display} to level ${candidate.level + 1}.`, client: interaction.client }) });
               return;
             }
@@ -711,11 +723,11 @@ module.exports = {
         const currentLevel = existing ? Number(existing.level || 0) : cfg.default_level || 0;
         if (currentLevel >= cfg.max_level) return safeReply(interaction, { content: `${cfg.display} is already at max level.`, ephemeral: true });
         const cost = Math.max(1, Math.floor(cfg.base_cost_jelly * (currentLevel + 1)));
-        const resources = await userResources.getResources(userId);
-        if ((resources.royal_jelly || 0) < cost) return safeReply(interaction, { content: `Not enough Royal Jelly. Need ${cost}.`, ephemeral: true });
+        const rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+        if (rj < cost) return safeReply(interaction, { content: `Not enough Royal Jelly. Need ${cost}.`, ephemeral: true });
         
         try {
-          await userResources.modifyResources(userId, { royal_jelly: -cost });
+          await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -cost);
           if (existing) {
             await db.knex('hive_modules').where({ id: existing.id }).update({ level: currentLevel + 1, updated_at: db.knex.fn.now() });
           } else {
@@ -731,9 +743,9 @@ module.exports = {
       // UPGRADE QUEEN
       if (sub === 'upgrade-queen') {
         const cost = 50;
-        const resources = await userResources.getResources(userId);
-        if ((resources.royal_jelly || 0) < cost) return safeReply(interaction, { content: `Not enough Royal Jelly. Need ${cost}.`, ephemeral: true });
-        await userResources.modifyResources(userId, { royal_jelly: -cost });
+        const rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+        if (rj < cost) return safeReply(interaction, { content: `Not enough Royal Jelly. Need ${cost}.`, ephemeral: true });
+        await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -cost);
         await hiveModel.updateHiveById(hive.id, { jelly_production_per_hour: (Number(hive.jelly_production_per_hour || 0) + 1) });
         return safeReply(interaction, { content: `✅ Upgraded Queen Chamber. +1 jelly/hour. Spent ${cost} Royal Jelly.`, ephemeral: true });
       }
