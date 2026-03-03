@@ -463,5 +463,29 @@ This patch release focuses on onboarding UX and news reminder reliability.
 - Version bumped to `1.9.2`.
 - Patch release contains no intentional breaking changes.
 
+## v1.9.3 — Evolve list UX updates and payload-limit fixes
+
+Date: 2026-03-03
+
+This patch release improves `/evolve list` usability and resolves Discord component payload-limit errors introduced during interactive UI expansion.
+
+### Features
+
+- Enhanced `/evolve list` with new interaction controls:
+  - Added a type filter select menu to sort/filter list entries by xenomorph type.
+  - Added per-entry `Info` buttons that open detailed info for the selected xenomorph.
+
+### Bug Fixes
+
+- Fixed Discord API payload failures (`COMPONENT_MAX_TOTAL_COMPONENTS_EXCEEDED`) on evolve list views.
+- Reduced component payload size to stay under Discord V2 limits while preserving filter + per-entry info functionality.
+  - Lowered evolve list page size.
+  - Capped type-filter option count.
+
+### Internal
+
+- Version bumped to `1.9.3`.
+- Patch release contains no intentional breaking changes.
+
 
 
