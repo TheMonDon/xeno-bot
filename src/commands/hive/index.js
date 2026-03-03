@@ -322,11 +322,6 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
       `**Status:** ${currentQueen ? 'Active' : 'Needs Queen'}`
     ];
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(queenLines.join('\n')));
-    if (hiveMembers.length > 0) {
-      const memberList = hiveMembers.map(m => `• #${m.id} ${String(m.role || m.stage).padEnd(12)} (Lv ${m.level || 1})`).join('\n');
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Members:**\n${memberList}`));
-    }
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Upgrade queen: higher level = faster jelly production._'));
   } else if (screen === 'types') {
     const currentType = hiveType;
     const typeLines = Object.values((hiveTypes && hiveTypes.types) || {})
