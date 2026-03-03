@@ -2,8 +2,6 @@ const { ChatInputCommandBuilder } = require('@discordjs/builders');
 const { ChannelType, PermissionsBitField } = require('discord.js');
 const guildModel = require('../../models/guild');
 const userModel = require('../../models/user');
-const hostModel = require('../../models/host');
-const xenoModel = require('../../models/xenomorph');
 const emojis = require('../../../config/emojis.json');
 const { getCommandConfig } = require('../../utils/commandsConfig');
 const { buildNoticeV2Payload, buildStatsV2Payload } = require('../../utils/componentsV2');
@@ -173,23 +171,17 @@ module.exports = {
       const gd = (defaults && defaults.guildDefaults) ? defaults.guildDefaults : { eggs: { classic: 1 }, items: {}, currency: { royal_jelly: 0 } };
       if (target) {
         try {
-          await userModel.findOrCreate(String(target.id));
-          const newData = { guilds: {}, stats: {} };
-          newData.guilds[interaction.guildId] = { eggs: Object.assign({}, gd.eggs || { classic: 1 }), items: Object.assign({}, gd.items || {}), currency: Object.assign({}, gd.currency || { royal_jelly: 0 }) };
-          await userModel.updateUserData(String(target.id), newData);
-          // Also remove any hosts owned by this user
-          try {
-            await hostModel.deleteHostsByOwner(String(target.id));
-          } catch (hostErr) {
-            require('../../utils/logger').get('command:setup').warn('Failed to remove user hosts during reset', { error: hostErr && (hostErr.stack || hostErr) });
-          }
-          // Also remove any xenomorphs owned by this user
-          try {
-            await xenoModel.deleteXenosByOwner(String(target.id));
-          } catch (xenoErr) {
-            require('../../utils/logger').get('command:setup').warn('Failed to remove user xenomorphs during reset', { error: xenoErr && (xenoErr.stack || xenoErr) });
-          }
-          await sendSetupNotice(interaction, `Reset ${target.username}'s data to default values for this server. Removed hosts and xenomorphs owned by the user.`, 'info', '✅ Reset Complete');
+          const user = await userModel.findOrCreate(String(target.id));
+          const data = user && user.data ? user.data : {};
+          data.guilds = data.guilds || {};
+          data.guilds[interaction.guildId] = {
+            eggs: Object.assign({}, gd.eggs || { classic: 1 }),
+            items: Object.assign({}, gd.items || {}),
+            currency: Object.assign({}, gd.currency || { royal_jelly: 0 })
+          };
+          if (!data.stats || typeof data.stats !== 'object') data.stats = {};
+          await userModel.updateUserData(String(target.id), data);
+          await sendSetupNotice(interaction, `Reset ${target.username}'s data to default values for this server only.`, 'info', '✅ Reset Complete');
         } catch (err) {
           await sendSetupNotice(interaction, `Failed to reset user: ${err && (err.message || err)}`, 'error');
         }
