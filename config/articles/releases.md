@@ -4,7 +4,42 @@ View the full changelog of xeno-bot's development progress, including all featur
 
 ----
 
-## v0.1.0 — Initial commit
+## v1.9.4 — Hive queen restrictions and UI polish
+
+Date: 2026-03-03
+
+- **Fixed:** Only fully-evolved **Queen** xenomorphs can now be assigned as hive queens (previously allowed any evolved xeno).
+- **Improved:** Hive UI redesigned for clarity:
+  - **Stats** screen now shows member breakdown by role.
+  - **Queen** screen displays current queen details and lists all hive members.
+  - **Assign Queen** screen shows available queens with pathway and level info.
+  - **Add Xenos** screen displays available xenos with detailed metadata.
+  - All screens now use better formatting with emojis and clearer status indicators.
+  - Hive snapshots split into multi-line format for readability.
+
+## v1.9.3 — Hive system expansion
+
+Date: 2026-03-03
+
+- Added interactive **Assign Queen** button + select menu to manage hive queens.
+- Added interactive **Add Xenos** button + multi-select to grow your colony.
+- Hive views now track and display xenomorph membership.
+- Added permissions checking: only hive owner can manage members and queens.
+- Fixed existing typo in hive create-prompt handler.
+
+## v1.9.2 — Evolve list filter and payload mitigation
+
+Date: 2026-03-03
+
+- Added type filter select and per-entry info buttons to `/evolve list`.
+- Reduced page size and filter options to fit Discord component limits.
+- Made expired evolve views keep UI disabled instead of hiding controls.
+
+## v1.9.1 — Release notes and version bump
+
+Date: 2026-03-02
+
+- Added v1.9.0 release notes documenting recent bug fixes and features.
 
 Date: 2026-02-27
 

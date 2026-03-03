@@ -39,7 +39,8 @@ function toXenoOption(x) {
 function getAssignableQueenXenos(xenos, hiveId) {
   const hiveIdNum = Number(hiveId);
   return (Array.isArray(xenos) ? xenos : []).filter(x => {
-    if (!isEvolvedXeno(x)) return false;
+    const role = String(x?.role || '').toLowerCase();
+    if (role !== 'queen') return false;
     if (x.hive_id == null) return true;
     return Number(x.hive_id) === hiveIdNum;
   });
@@ -139,27 +140,46 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
   if (notice) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(notice));
 
   const hiveType = hive.type || hive.hive_type || 'default';
-  const hivePopulation = Array.isArray(rows.xenos)
-    ? rows.xenos.filter(x => Number(x.hive_id) === Number(hive.id)).length
-    : null;
+  const hiveMembers = Array.isArray(rows.xenos)
+    ? rows.xenos.filter(x => Number(x.hive_id) === Number(hive.id))
+    : [];
+  const hivePopulation = hiveMembers.length;
   const snapshotLines = [
     `**Owner:** <@${targetUser.id}>`,
     `**Type:** \`${hiveType}\``,
-    `**Capacity:** ${hive.capacity || 0}`,
-    ...(hivePopulation !== null ? [`**Members:** ${hivePopulation}/${hive.capacity || 0}`] : []),
+    `**Capacity:** ${hivePopulation}/${hive.capacity || 0}`,
     `**Jelly/hour:** ${hive.jelly_production_per_hour || 0}`,
-    `**Queen:** ${hive.queen_xeno_id || 'Unassigned'}`
+    `**Queen:** ${hive.queen_xeno_id ? `#${hive.queen_xeno_id} 👑` : '⚠️ Unassigned'}`
   ];
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(snapshotLines.join(' • ')));
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(snapshotLines.join('\n')));
 
   if (screen === 'stats') {
+    const hiveMembers = Array.isArray(rows.xenos)
+      ? rows.xenos.filter(x => Number(x.hive_id) === Number(hive.id))
+      : [];
     const statLines = [
       `**Hive ID:** \`${hive.id || 'unknown'}\``,
       `**Created:** ${toDiscordTimestamp(hive.created_at, 'f')} (${toDiscordTimestamp(hive.created_at, 'R')})`,
-      `**Last Updated:** ${toDiscordTimestamp(hive.updated_at, 'f')} (${toDiscordTimestamp(hive.updated_at, 'R')})`
+      `**Last Updated:** ${toDiscordTimestamp(hive.updated_at, 'f')} (${toDiscordTimestamp(hive.updated_at, 'R')})`,
+      ''
     ];
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(statLines.join('\n')));
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Next actions: Upgrade modules for stronger scaling, then upgrade queen for steady jelly growth._'));
+    
+    if (hiveMembers.length > 0) {
+      const roleBreakdown = {};
+      hiveMembers.forEach(m => {
+        const role = String(m.role || m.stage).toLowerCase();
+        roleBreakdown[role] = (roleBreakdown[role] || 0) + 1;
+      });
+      const breakdown = Object.entries(roleBreakdown)
+        .sort(([, a], [, b]) => b - a)
+        .map(([role, count]) => `• ${role}: ${count}`)
+        .join('\n');
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Member Breakdown:**\n${breakdown}`));
+    } else {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Empty hive. Add xenomorphs to grow your colony._'));
+    }
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Upgrade modules and queens to increase production._'));
   } else if (screen === 'modules') {
     const modulesCfg = hiveDefaults.modules || {};
     const moduleLines = Object.keys(modulesCfg).map(k => {
@@ -192,15 +212,31 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Tip: milestones unlock naturally as you expand and upgrade your hive._'));
   } else if (screen === 'queen') {
     const royalJelly = rows.resources?.royal_jelly || 0;
-    const queenReady = hive.queen_xeno_id ? 'Assigned' : 'Needs assignment';
+    const hiveMembers = Array.isArray(rows.xenos)
+      ? rows.xenos.filter(x => Number(x.hive_id) === Number(hive.id))
+      : [];
+    const currentQueen = hive.queen_xeno_id
+      ? hiveMembers.find(x => Number(x.id) === Number(hive.queen_xeno_id))
+      : null;
+    
+    const queenSection = currentQueen
+      ? `**Queen:** #${currentQueen.id} (Pathway: ${currentQueen.pathway || 'unknown'}, Level ${currentQueen.level || 1})`
+      : '**Queen:** ⚠️ No queen assigned';
+    
     const queenLines = [
-      `**Queen Xeno ID:** ${hive.queen_xeno_id || 'None'}`,
-      `**Jelly/hour:** ${hive.jelly_production_per_hour || 0}`,
-      `**Royal Jelly (you):** ${royalJelly}`,
-      `**Status:** ${queenReady}`
+      queenSection,
+      '',
+      `**Jelly Production:** ${hive.jelly_production_per_hour || 0} RJ/hour`,
+      `**Your Royal Jelly:** ${royalJelly}`,
+      `**Hive Members:** ${hiveMembers.length}/${hive.capacity || 0}`,
+      `**Status:** ${currentQueen ? '✅ Active' : '❌ Needs Queen'}`
     ];
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(queenLines.join('\n')));
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Tip: use `/hive upgrade-queen` when you have enough Royal Jelly._'));
+    if (hiveMembers.length > 0) {
+      const memberList = hiveMembers.map(m => `• #${m.id} ${String(m.role || m.stage).padEnd(12)} (Lv ${m.level || 1})`).join('\n');
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Members:**\n${memberList}`));
+    }
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Upgrade queen: higher level = faster jelly production._'));
   } else if (screen === 'types') {
     const currentType = hiveType;
     const typeLines = Object.values((hiveTypes && hiveTypes.types) || {})
@@ -213,20 +249,22 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
     const currentQueen = hive.queen_xeno_id ? `#${hive.queen_xeno_id}` : 'None';
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Current Queen:** ${currentQueen}`));
     if (!canAct) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('Only the hive owner can assign a queen.'));
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Only the hive owner can assign a queen.'));
     } else if (!assignable.length) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('No eligible xenomorphs found. Evolve xenos first or move one into this hive.'));
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ No eligible queen xenomorphs found. You need at least one fully-evolved Queen to assign.'));
     } else {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`Select a queen from ${assignable.length} eligible xenomorph(s).`));
+      const list = assignable.map(q => `• #${q.id} — Pathway: ${q.pathway || 'unknown'}, Level ${q.level || 1}`).join('\n');
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Available Queens (${assignable.length}):**\n${list}`));
     }
   } else if (screen === 'add-xenos') {
     const addable = getAddableXenos(rows.xenos || [], hive.id);
     if (!canAct) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('Only the hive owner can add xenos to this hive.'));
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('❌ Only the hive owner can add xenos to this hive.'));
     } else if (!addable.length) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('No available xenomorphs to add right now.'));
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('✅ Your hive is fully populated! All eligible xenos are already members.'));
     } else {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`Select one or more xenomorphs to add (${addable.length} available).`));
+      const list = addable.slice(0, 15).map(x => `• #${x.id} ${String(x.role || x.stage).padEnd(12)} (Pathway: ${x.pathway || 'unknown'}, Lv ${x.level || 1})`).join('\n');
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Available to Add (${addable.length} total):**\n${list}${addable.length > 15 ? `\n... and ${addable.length - 15} more` : ''}\n\n_Select xenomorphs to add them to your hive._`));
     }
   }
 
