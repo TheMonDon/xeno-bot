@@ -41,6 +41,50 @@ async function safeReply(interaction, payload = {}, opts = {}) {
   const usingStyledPayload = !!styledPayload;
   if (usingStyledPayload) payload = styledPayload;
   try {
+    // Attach reminder before any reply/edit path so deferred interactions also receive it.
+    try {
+      if (interaction && interaction._newsReminder && payload && typeof payload === 'object' && !payload.__suppressNewsReminder) {
+        let mention = '/news';
+        try {
+          let appCommands = null;
+          if (interaction.guild) {
+            appCommands = await interaction.guild.commands.fetch();
+          }
+          if (!appCommands && interaction.client && interaction.client.application) {
+            appCommands = await interaction.client.application.commands.fetch();
+          }
+          if (appCommands) {
+            const found = appCommands.find(c => c.name === 'news');
+            if (found && found.id) mention = `</news:${found.id}>`;
+          }
+        } catch (e) { /* ignore fetch failures, fall back to plain text /news */ }
+
+        const noticeLine = `📢 New article posted! Read it with ${mention}`;
+
+        // For component payloads (especially V2), inject into first container when possible.
+        if (Array.isArray(payload.components) && payload.components.length > 0) {
+          let injected = false;
+          try {
+            const { TextDisplayBuilder } = require('discord.js');
+            const first = payload.components[0];
+            if (first && typeof first.addTextDisplayComponents === 'function') {
+              first.addTextDisplayComponents(new TextDisplayBuilder().setContent(noticeLine));
+              injected = true;
+            }
+          } catch (_) { /* fallback below */ }
+
+          if (!injected) {
+            // Fallback for non-builder payloads or embeds: prepend content line.
+            if (payload.content) payload.content = `${noticeLine}\n\n${payload.content}`;
+            else payload.content = noticeLine;
+          }
+        } else {
+          if (payload.content) payload.content = `${noticeLine}\n\n${payload.content}`;
+          else payload.content = noticeLine;
+        }
+      }
+    } catch (e) { /* ignore reminder attach errors */ }
+
     // If interaction already replied or deferred, prefer editReply
     if (interaction.replied || interaction.deferred) {
       try {
@@ -64,36 +108,6 @@ async function safeReply(interaction, payload = {}, opts = {}) {
         }
       }
     }
-
-    // If caller requested suppression of news reminder, skip. Otherwise prepend reminder to content if present on interaction.
-    try {
-      if (interaction && interaction._newsReminder && !payload.__suppressNewsReminder) {
-        if (payload.components || payload.embeds) {
-          // Skip reminder injection for structured payloads to avoid mixing incompatible content types.
-        } else {
-        // Don't reveal the article title; just notify there's a new article.
-        // Prefer a linked mention to the `/news` application command when available.
-        let mention = '/news';
-        try {
-          let appCommands = null;
-          if (interaction.guild) {
-            appCommands = await interaction.guild.commands.fetch();
-          }
-          if (!appCommands && interaction.client && interaction.client.application) {
-            appCommands = await interaction.client.application.commands.fetch();
-          }
-          if (appCommands) {
-            const found = appCommands.find(c => c.name === 'news');
-            if (found && found.id) mention = `</news:${found.id}>`;
-          }
-        } catch (e) { /* ignore fetch failures, fall back to plain text /news */ }
-
-        const notice = `📢 New article posted! Read it with ${mention}\n\n`;
-        if (payload.content) payload.content = notice + payload.content;
-        else payload.content = notice;
-        }
-      }
-    } catch (e) { /* ignore reminder attach errors */ }
 
     // If caller didn't set ephemeral explicitly, try to infer from commands.json config (command or subcommand)
     try {
