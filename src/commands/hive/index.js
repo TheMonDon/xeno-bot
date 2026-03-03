@@ -259,17 +259,19 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${cfg.display}** (${k})\nLevel ${level} — ${cfg.description}`));
       }
     } else {
-      // Display upgradable modules with buttons interleaved
+      // Display upgradable modules with inline section accessory buttons
       for (const m of upgradable) {
-        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${m.cfg.display}** (${m.moduleKey})\nLevel ${m.level} — ${m.cfg.description}`));
-        container.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new PrimaryButtonBuilder()
+        const section = new SectionBuilder()
+          .setPrimaryButtonAccessory((button) =>
+            button
               .setCustomId(`hive-upgrade-module-${m.moduleKey}`)
               .setLabel(`Upgrade (${formatNumber(m.cost)} RJ)`)
               .setDisabled(!canAct)
           )
-        );
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(`**${m.cfg.display}** (${m.moduleKey})\nLevel ${m.level} — ${m.cfg.description}`)
+          );
+        container.addSectionComponents(section);
         container.addSeparatorComponents(
           new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small)
         );
