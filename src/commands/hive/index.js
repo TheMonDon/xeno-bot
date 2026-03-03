@@ -8,6 +8,7 @@ const { addV2TitleWithBotThumbnail } = require('../../utils/componentsV2');
 const hiveTypes = require('../../../config/hiveTypes.json');
 const hiveDefaults = require('../../../config/hiveDefaults.json');
 const emojis = require('../../../config/emojis.json');
+const { getPaginationState, buildPaginationRow } = require('../../utils/pagination');
 const db = require('../../db');
 const { formatNumber } = require('../../utils/numberFormat');
 
@@ -24,8 +25,9 @@ const HIVE_NAV_DELETE_ID = 'hive-nav-delete';
 const HIVE_DELETE_BACK_ID = 'hive-delete-back';
 const HIVE_CREATE_VIEW_ID = 'hive-create-view';
 const HIVE_NAV_MEMBERS_ID = 'hive-nav-members';
-const HIVE_MEMBERS_PREV_PAGE = 'hive-members-prev';
-const HIVE_MEMBERS_NEXT_PAGE = 'hive-members-next';
+const HIVE_MEMBERS_PAGINATION_PREFIX = 'hive-members';
+const HIVE_MEMBERS_PREV_PAGE = `${HIVE_MEMBERS_PAGINATION_PREFIX}-prev-page`;
+const HIVE_MEMBERS_NEXT_PAGE = `${HIVE_MEMBERS_PAGINATION_PREFIX}-next-page`;
 const HIVE_ASSIGN_QUEEN_SELECT_ID = 'hive-select-assign-queen';
 const HIVE_ADD_XENOS_SELECT_ID = 'hive-select-add-xenos';
 const HIVE_UPGRADE_MODULE_SELECT_ID = 'hive-select-upgrade-module';
@@ -331,17 +333,17 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`_Current hive type: \`${currentType}\`_`));
   } else if (screen === 'members') {
     const members = Array.isArray(rows.xenos) ? rows.xenos.filter(x => Number(x.hive_id) === Number(hive.id)) : [];
-    const pageSize = 10;
-    const currentPage = Math.max(0, Number(membersPage || 0));
-    const maxPage = Math.max(1, Math.ceil(members.length / pageSize));
-    const safeCurrentPage = Math.min(currentPage, maxPage - 1);
-    const start = safeCurrentPage * pageSize;
-    const pageMembers = members.slice(start, start + pageSize);
+    const pagination = getPaginationState({
+      items: members,
+      pageIdx: Number(membersPage || 0),
+      pageSize: 10
+    });
+    const pageMembers = pagination.pageItems;
     
     if (members.length === 0) {
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent('No members in this hive yet.'));
     } else {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Members (${start + 1}-${Math.min(start + pageSize, members.length)} of ${members.length}):**`));
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Members (${pagination.start + 1}-${Math.min(pagination.end, pagination.totalItems)} of ${pagination.totalItems}):**`));
       
       for (const m of pageMembers) {
         const typeEmoji = getEmojiForMember(m);
@@ -356,18 +358,18 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
         container.addSectionComponents(section);
       }
       
-      if (maxPage > 1) {
+      if (pagination.totalPages > 1) {
         container.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new SecondaryButtonBuilder()
-              .setCustomId(HIVE_MEMBERS_PREV_PAGE)
-              .setLabel('Previous')
-              .setDisabled(safeCurrentPage === 0),
-            new SecondaryButtonBuilder()
-              .setCustomId(HIVE_MEMBERS_NEXT_PAGE)
-              .setLabel('Next')
-              .setDisabled(safeCurrentPage >= maxPage - 1)
-          )
+          buildPaginationRow({
+            prefix: HIVE_MEMBERS_PAGINATION_PREFIX,
+            pageIdx: pagination.safePageIdx,
+            totalPages: pagination.totalPages,
+            totalItems: pagination.totalItems,
+            prevLabel: 'Previous',
+            nextLabel: 'Next',
+            totalLabel: 'Members',
+            showPageInfo: true
+          })
         );
       }
     }
@@ -862,16 +864,16 @@ module.exports = {
           }
           else if (i.customId === HIVE_MEMBERS_PREV_PAGE) {
             const members = Array.isArray(xenos) ? xenos.filter(x => Number(x.hive_id) === Number(viewHive.id)) : [];
-            const pageSize = 10;
-            const maxPage = Math.max(1, Math.ceil(members.length / pageSize));
+            const pagination = getPaginationState({ items: members, pageIdx: currentMembersPage, pageSize: 10 });
+            const maxPage = Math.max(1, pagination.totalPages);
             currentMembersPage = Math.max(0, Math.min(maxPage - 1, currentMembersPage - 1));
             await i.update({ components: buildHiveScreen({ screen: 'members', hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, membersPage: currentMembersPage, client: interaction.client }) });
             return;
           }
           else if (i.customId === HIVE_MEMBERS_NEXT_PAGE) {
             const members = Array.isArray(xenos) ? xenos.filter(x => Number(x.hive_id) === Number(viewHive.id)) : [];
-            const pageSize = 10;
-            const maxPage = Math.max(1, Math.ceil(members.length / pageSize));
+            const pagination = getPaginationState({ items: members, pageIdx: currentMembersPage, pageSize: 10 });
+            const maxPage = Math.max(1, pagination.totalPages);
             currentMembersPage = Math.max(0, Math.min(maxPage - 1, currentMembersPage + 1));
             await i.update({ components: buildHiveScreen({ screen: 'members', hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, membersPage: currentMembersPage, client: interaction.client }) });
             return;
