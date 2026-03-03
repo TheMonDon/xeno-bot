@@ -306,5 +306,17 @@
     "sell": 50,
     "hatch": 600,
     "next_stage": "king_facehugger"
+  },
+  {
+    "id": "golden",
+    "name": "Golden Egg",
+    "emoji": "<:egg:1476511857958457406>",
+    "weight": 0,
+    "rarity": 69,
+    "price": 2000000,
+    "sell": 1000,
+    "hatch": 172800,
+    "next_stage": "facehugger",
+    "grantable_only": true
   }
 ]

@@ -375,14 +375,15 @@ function getNextSpawnForGuild(guildId) {
 }
 
 function pickEggType() {
-  // Weighted random selection from eggTypes config
-  const totalWeight = eggTypes.reduce((sum, t) => sum + (t.weight || 1), 0);
+  // Weighted random selection from spawnable eggTypes (exclude grantable_only)
+  const spawnableEggs = eggTypes.filter(t => !t.grantable_only);
+  const totalWeight = spawnableEggs.reduce((sum, t) => sum + (t.weight || 1), 0);
   let r = Math.random() * totalWeight;
-  for (const type of eggTypes) {
+  for (const type of spawnableEggs) {
     r -= type.weight || 1;
     if (r <= 0) return type;
   }
-  return eggTypes[0]; // fallback
+  return spawnableEggs[0]; // fallback
 }
 
 async function doSpawn(guildId, forcedEggTypeId, isForced = false) {
