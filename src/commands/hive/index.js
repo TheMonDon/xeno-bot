@@ -21,6 +21,7 @@ const HIVE_NAV_ASSIGN_QUEEN_ID = 'hive-nav-assign-queen';
 const HIVE_NAV_ADD_XENOS_ID = 'hive-nav-add-xenos';
 const HIVE_ASSIGN_QUEEN_SELECT_ID = 'hive-select-assign-queen';
 const HIVE_ADD_XENOS_SELECT_ID = 'hive-select-add-xenos';
+const HIVE_UPGRADE_MODULE_SELECT_ID = 'hive-select-upgrade-module';
 
 function isEvolvedXeno(x) {
   const role = String(x?.role || '').toLowerCase();
@@ -53,6 +54,25 @@ function getAddableXenos(xenos, hiveId) {
     if (x.hive_id == null) return true;
     return Number(x.hive_id) !== hiveIdNum;
   });
+}
+
+function getUpgradableModules(modulesRows = []) {
+  const modulesCfg = hiveDefaults.modules || {};
+  const upgradable = [];
+  
+  for (const moduleKey of Object.keys(modulesCfg)) {
+    const cfg = modulesCfg[moduleKey] || {};
+    const moduleRow = Array.isArray(modulesRows) ? modulesRows.find(m => m.module_key === moduleKey) : null;
+    const level = moduleRow ? Number(moduleRow.level || 0) : Number(cfg.default_level || 0);
+    const maxLevel = Number(cfg.max_level || 0);
+    
+    if (maxLevel > 0 && level >= maxLevel) continue;
+    
+    const cost = Math.max(1, Math.floor(Number(cfg.base_cost_jelly || 1) * (level + 1)));
+    upgradable.push({ moduleKey, cfg, level, row: moduleRow, cost });
+  }
+  
+  return upgradable.sort((a, b) => a.cost - b.cost);
 }
 
 function buildNavigationRow({ screen, disabled = false }) {
@@ -197,7 +217,6 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
     }).length;
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Progress:** ${upgradedCount}/${moduleCount} modules upgraded`));
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(moduleLines || 'No modules found'));
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Tip: use `/hive upgrade-module module:<key>` to improve specific bonuses._'));
   } else if (screen === 'milestones') {
     const milestonesCfg = hiveDefaults.milestones || {};
     const milestoneKeys = Object.keys(milestonesCfg);
@@ -290,6 +309,24 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
             .addOptions(assignable.length ? assignable.map(toXenoOption) : [{ label: 'No eligible xenomorphs', value: 'none', description: 'Evolve or assign xenos first' }])
         )
       );
+    }
+
+    if (screen === 'modules') {
+      const upgradable = getUpgradableModules(rows.modules || []).slice(0, 25);
+      if (upgradable.length > 0) {
+        for (let i = 0; i < upgradable.length; i += 5) {
+          const batch = upgradable.slice(i, i + 5);
+          const row = new ActionRowBuilder().addComponents(
+            ...batch.map(m => 
+              new PrimaryButtonBuilder()
+                .setCustomId(`hive-upgrade-module-${m.moduleKey}`)
+                .setLabel(`${m.cfg.display} (${formatNumber(m.cost)} RJ)`)
+                .setDisabled(!canAct)
+            )
+          );
+          container.addActionRowComponents(row);
+        }
+      }
     }
 
     if (screen === 'add-xenos') {
@@ -584,6 +621,35 @@ module.exports = {
             let rjAfterModuleUpgrade = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
             resources = { royal_jelly: rjAfterModuleUpgrade };
             await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Upgraded ${candidate.cfg.display} to level ${candidate.level + 1}.`, client: interaction.client }) });
+            return;
+          }
+
+          if (i.customId.startsWith('hive-upgrade-module-')) {
+            const moduleKey = i.customId.replace('hive-upgrade-module-', '');
+            const upgradable = getUpgradableModules(modules || []);
+            const moduleToUpgrade = upgradable.find(m => m.moduleKey === moduleKey);
+            if (!moduleToUpgrade) {
+              await i.reply({ content: 'That module is no longer upgradable.', ephemeral: true });
+              return;
+            }
+
+            let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+            if (rj < moduleToUpgrade.cost) {
+              resources = { royal_jelly: rj };
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `❌ Not enough Royal Jelly for ${moduleToUpgrade.cfg.display}. Need ${formatNumber(moduleToUpgrade.cost)}.`, client: interaction.client }) });
+              return;
+            }
+
+            await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -moduleToUpgrade.cost);
+            if (moduleToUpgrade.row) {
+              await db.knex('hive_modules').where({ id: moduleToUpgrade.row.id }).update({ level: moduleToUpgrade.level + 1, updated_at: db.knex.fn.now() });
+            } else {
+              await db.knex('hive_modules').insert({ hive_id: viewHive.id, module_key: moduleKey, level: 1 });
+            }
+            modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
+            let rjAfter = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
+            resources = { royal_jelly: rjAfter };
+            await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Upgraded ${moduleToUpgrade.cfg.display} to level ${moduleToUpgrade.level + 1}.`, client: interaction.client }) });
             return;
           }
 
