@@ -186,15 +186,12 @@ module.exports = {
       let currentPathway = null;
 
       const collector = msg.createMessageComponentCollector({
+        filter: i => i.user.id === discordId,
         time: 300_000
       });
 
       collector.on('collect', async i => {
         try {
-          if (i.user.id !== discordId) {
-            try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
-            return;
-          }
           if (i.customId === 'pathway-select') {
             currentPathway = i.values[0];
             await i.update({ components: buildPathwayDetailView({ pathwayId: currentPathway, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });

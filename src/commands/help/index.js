@@ -340,16 +340,12 @@ module.exports = {
     }
 
     const collector = msg.createMessageComponentCollector({
-      filter: i => ['help-category', 'help-prev', 'help-next'].includes(i.customId),
+      filter: i => i.user.id === interaction.user.id && ['help-category', 'help-prev', 'help-next'].includes(i.customId),
       time: 120_000
     });
 
     collector.on('collect', async i => {
       try {
-        if (i.user.id !== interaction.user.id) {
-          await safeReply(i, { content: 'Only the command user can interact with this view.', ephemeral: true }, { loggerName: 'command:help' });
-          return;
-        }
 
         if (i.customId === 'help-category') {
           const cat = i.values[0];

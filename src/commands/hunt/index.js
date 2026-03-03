@@ -379,14 +379,11 @@ async function performHunt(interaction, client) {
     if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
 
     const collector = msg.createMessageComponentCollector({
+      filter: i => i.user.id === userId,
       time: 300_000
     });
 
     collector.on('collect', async i => {
-      if (i.user.id !== userId) {
-        try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
-        return;
-      }
       if (i.customId === 'hunt-view-list-from-result') {
         const hostList = await hostModel.getHostsForUser(userId);
         await i.update({ components: buildHostListPage({ rows: hostList, cfgHosts, emojis: emojisCfg, client }) });

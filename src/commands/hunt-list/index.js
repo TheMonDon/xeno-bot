@@ -248,15 +248,12 @@ module.exports = {
       let currentViewMode = 'list'; // 'list', 'stats'
 
       const collector = msg.createMessageComponentCollector({
+        filter: i => i.user.id === userId,
         time: 300_000
       });
 
       collector.on('collect', async i => {
         try {
-          if (i.user.id !== userId) {
-            try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
-            return;
-          }
           // Navigation
           if (i.customId === 'hunt-prev-page') {
             currentPage = Math.max(0, currentPage - 1);

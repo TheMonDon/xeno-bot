@@ -129,16 +129,12 @@ module.exports = {
       const totalPages = Math.ceil(emojiEntries.length / EMOJIS_PER_PAGE);
 
       const collector = msg.createMessageComponentCollector({
-        filter: i => i.customId === 'emoji-prev-page' || i.customId === 'emoji-next-page',
+        filter: i => i.user.id === userId && (i.customId === 'emoji-prev-page' || i.customId === 'emoji-next-page'),
         time: 120_000
       });
 
       collector.on('collect', async i => {
         try {
-          if (i.user.id !== userId) {
-            try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
-            return;
-          }
           if (i.customId === 'emoji-prev-page') {
             currentPage = Math.max(0, currentPage - 1);
           } else if (i.customId === 'emoji-next-page') {
