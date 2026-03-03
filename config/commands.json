@@ -200,6 +200,13 @@
       "ephemeral": true,
       "examples": ["/help - Browse all available commands by category"]
     },
+    "tutorial": {
+      "name": "tutorial",
+      "description": "Interactive getting-started tutorial for gameplay and setup.",
+      "group": "Bot Info",
+      "ephemeral": true,
+      "examples": ["/tutorial - Open category tutorial pages"]
+    },
     "credits": {
       "name": "credits",
       "description": "Show bot credits and contributors.",
