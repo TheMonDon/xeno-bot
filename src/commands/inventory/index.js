@@ -47,7 +47,10 @@ function makeInventoryComponents(target, type, pageIdx, pages, balances = {}, op
   const {
     showControls = true,
     disablePrev = false,
-    disableNext = false
+    disableNext = false,
+    currentSort = 'date_desc',
+    currentFilter = 'all',
+    availableFilters = []
   } = opts;
   const container = new ContainerBuilder();
   const page = pages[pageIdx] || [];
@@ -89,6 +92,119 @@ function makeInventoryComponents(target, type, pageIdx, pages, balances = {}, op
           )
       )
     );
+
+    // Add sort menu for all types except currencies
+    if (type === 'eggs') {
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('inventory-sort')
+            .setPlaceholder('Sort by')
+            .addOptions(
+              new StringSelectMenuOptionBuilder().setLabel('Name (A-Z)').setValue('name_asc').setDefault(currentSort === 'name_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Name (Z-A)').setValue('name_desc').setDefault(currentSort === 'name_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Quantity (High to Low)').setValue('quantity_desc').setDefault(currentSort === 'quantity_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Quantity (Low to High)').setValue('quantity_asc').setDefault(currentSort === 'quantity_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Rarity (High to Low)').setValue('rarity_desc').setDefault(currentSort === 'rarity_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Rarity (Low to High)').setValue('rarity_asc').setDefault(currentSort === 'rarity_asc')
+            )
+        )
+      );
+    } else if (type === 'items') {
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('inventory-sort')
+            .setPlaceholder('Sort by')
+            .addOptions(
+              new StringSelectMenuOptionBuilder().setLabel('Name (A-Z)').setValue('name_asc').setDefault(currentSort === 'name_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Name (Z-A)').setValue('name_desc').setDefault(currentSort === 'name_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Quantity (High to Low)').setValue('quantity_desc').setDefault(currentSort === 'quantity_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Quantity (Low to High)').setValue('quantity_asc').setDefault(currentSort === 'quantity_asc')
+            )
+        )
+      );
+    } else if (type === 'hosts') {
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('inventory-sort')
+            .setPlaceholder('Sort by')
+            .addOptions(
+              new StringSelectMenuOptionBuilder().setLabel('Newest First').setValue('date_desc').setDefault(currentSort === 'date_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Oldest First').setValue('date_asc').setDefault(currentSort === 'date_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Type (A-Z)').setValue('type_asc').setDefault(currentSort === 'type_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Type (Z-A)').setValue('type_desc').setDefault(currentSort === 'type_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('ID (Low to High)').setValue('id_asc').setDefault(currentSort === 'id_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('ID (High to Low)').setValue('id_desc').setDefault(currentSort === 'id_desc')
+            )
+        )
+      );
+      
+      // Add filter menu for host types
+      if (availableFilters.length > 0) {
+        const filterOptions = [
+          new StringSelectMenuOptionBuilder().setLabel('All Types').setValue('all').setDefault(currentFilter === 'all')
+        ];
+        for (const filter of availableFilters) {
+          filterOptions.push(
+            new StringSelectMenuOptionBuilder()
+              .setLabel(filter.label)
+              .setValue(filter.value)
+              .setDefault(currentFilter === filter.value)
+          );
+        }
+        container.addActionRowComponents(
+          new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('inventory-filter')
+              .setPlaceholder('Filter by type')
+              .addOptions(...filterOptions)
+          )
+        );
+      }
+    } else if (type === 'xenos') {
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('inventory-sort')
+            .setPlaceholder('Sort by')
+            .addOptions(
+              new StringSelectMenuOptionBuilder().setLabel('Newest First').setValue('date_desc').setDefault(currentSort === 'date_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Oldest First').setValue('date_asc').setDefault(currentSort === 'date_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Stage (A-Z)').setValue('stage_asc').setDefault(currentSort === 'stage_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Stage (Z-A)').setValue('stage_desc').setDefault(currentSort === 'stage_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('Pathway (A-Z)').setValue('pathway_asc').setDefault(currentSort === 'pathway_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('Pathway (Z-A)').setValue('pathway_desc').setDefault(currentSort === 'pathway_desc'),
+              new StringSelectMenuOptionBuilder().setLabel('ID (Low to High)').setValue('id_asc').setDefault(currentSort === 'id_asc'),
+              new StringSelectMenuOptionBuilder().setLabel('ID (High to Low)').setValue('id_desc').setDefault(currentSort === 'id_desc')
+            )
+        )
+      );
+      
+      // Add filter menu for xeno stages
+      if (availableFilters.length > 0) {
+        const filterOptions = [
+          new StringSelectMenuOptionBuilder().setLabel('All Stages').setValue('all').setDefault(currentFilter === 'all')
+        ];
+        for (const filter of availableFilters) {
+          filterOptions.push(
+            new StringSelectMenuOptionBuilder()
+              .setLabel(filter.label)
+              .setValue(filter.value)
+              .setDefault(currentFilter === filter.value)
+          );
+        }
+        container.addActionRowComponents(
+          new ActionRowBuilder().addComponents(
+            new StringSelectMenuBuilder()
+              .setCustomId('inventory-filter')
+              .setPlaceholder('Filter by stage')
+              .addOptions(...filterOptions)
+          )
+        );
+      }
+    }
 
     container.addActionRowComponents(
       new ActionRowBuilder().addComponents(
@@ -160,25 +276,88 @@ module.exports = {
     // Build initial view: default to eggs
     const items = user?.data?.guilds?.[guildId]?.items || {};
     const currencies = user?.data?.guilds?.[guildId]?.currency || {};
-    const getFieldsForType = async (viewType) => {
+    const getFieldsForType = async (viewType, sortBy = 'name_asc', filterBy = 'all') => {
       const out = [];
+      const filters = [];
+      
       if (viewType === 'eggs') {
+        const eggList = [];
         for (const type of eggTypes) {
           const count = eggs[type.id];
-          if (count && count > 0) out.push({ name: `${type.emoji} ${type.name}`, value: String(count), inline: true });
+          if (count && count > 0) {
+            eggList.push({ 
+              name: `${type.emoji} ${type.name}`, 
+              value: String(count), 
+              inline: true,
+              type: type,
+              count: count
+            });
+          }
         }
-        return out;
+        
+        // Apply sorting
+        if (sortBy === 'name_asc') {
+          eggList.sort((a, b) => a.type.name.localeCompare(b.type.name));
+        } else if (sortBy === 'name_desc') {
+          eggList.sort((a, b) => b.type.name.localeCompare(a.type.name));
+        } else if (sortBy === 'quantity_desc') {
+          eggList.sort((a, b) => b.count - a.count);
+        } else if (sortBy === 'quantity_asc') {
+          eggList.sort((a, b) => a.count - b.count);
+        } else if (sortBy === 'rarity_desc') {
+          eggList.sort((a, b) => (b.type.rarity || 0) - (a.type.rarity || 0));
+        } else if (sortBy === 'rarity_asc') {
+          eggList.sort((a, b) => (a.type.rarity || 0) - (b.type.rarity || 0));
+        }
+        
+        return { 
+          fields: eggList.map(e => ({ name: e.name, value: e.value, inline: e.inline })),
+          filters: []
+        };
       }
 
       if (viewType === 'currencies') {
         out.push({ name: 'Credits', value: String(currencies.credits || 0), inline: true });
         out.push({ name: 'Royal Jelly', value: String(currencies.royal_jelly || 0), inline: true });
-        return out;
+        return { fields: out, filters: [] };
       }
 
       if (viewType === 'hosts') {
         try {
-          const rows = await hostModel.listHostsByOwner(target.id);
+          let rows = await hostModel.listHostsByOwner(target.id);
+          
+          // Get unique host types for filter options
+          const uniqueTypes = new Set();
+          for (const r of rows) {
+            if (r.host_type) uniqueTypes.add(r.host_type);
+          }
+          for (const hostType of uniqueTypes) {
+            const hostInfo = hostsCfg.hosts?.[hostType];
+            const display = hostInfo?.display || hostType;
+            filters.push({ label: display, value: hostType });
+          }
+          filters.sort((a, b) => a.label.localeCompare(b.label));
+          
+          // Apply filter
+          if (filterBy !== 'all') {
+            rows = rows.filter(r => r.host_type === filterBy);
+          }
+          
+          // Apply sorting
+          if (sortBy === 'date_desc') {
+            rows.sort((a, b) => Number(b.found_at || b.created_at) - Number(a.found_at || a.created_at));
+          } else if (sortBy === 'date_asc') {
+            rows.sort((a, b) => Number(a.found_at || a.created_at) - Number(b.found_at || b.created_at));
+          } else if (sortBy === 'type_asc') {
+            rows.sort((a, b) => (a.host_type || '').localeCompare(b.host_type || ''));
+          } else if (sortBy === 'type_desc') {
+            rows.sort((a, b) => (b.host_type || '').localeCompare(a.host_type || ''));
+          } else if (sortBy === 'id_asc') {
+            rows.sort((a, b) => Number(a.id) - Number(b.id));
+          } else if (sortBy === 'id_desc') {
+            rows.sort((a, b) => Number(b.id) - Number(a.id));
+          }
+          
           for (const r of rows) {
             const label = `${getHostDisplay(r.host_type, hostsCfg.hosts || {}, emojisCfg)} [${r.id}]`;
             out.push({ name: label, value: `Found <t:${Math.floor(Number(r.found_at || r.created_at) / 1000)}:f>`, inline: false });
@@ -186,12 +365,48 @@ module.exports = {
         } catch (e) {
           // ignore and return empty
         }
-        return out;
+        return { fields: out, filters };
       }
 
       if (viewType === 'xenos') {
         try {
-          const rows = await xenoModel.getXenosByOwner(target.id);
+          let rows = await xenoModel.getXenosByOwner(target.id);
+          
+          // Get unique stages for filter options
+          const uniqueStages = new Set();
+          for (const x of rows) {
+            const stage = x.role || x.stage;
+            if (stage) uniqueStages.add(stage);
+          }
+          for (const stage of uniqueStages) {
+            filters.push({ label: stage, value: stage });
+          }
+          filters.sort((a, b) => a.label.localeCompare(b.label));
+          
+          // Apply filter
+          if (filterBy !== 'all') {
+            rows = rows.filter(x => (x.role || x.stage) === filterBy);
+          }
+          
+          // Apply sorting
+          if (sortBy === 'date_desc') {
+            rows.sort((a, b) => Number(b.created_at || b.started_at || 0) - Number(a.created_at || a.started_at || 0));
+          } else if (sortBy === 'date_asc') {
+            rows.sort((a, b) => Number(a.created_at || a.started_at || 0) - Number(b.created_at || b.started_at || 0));
+          } else if (sortBy === 'stage_asc') {
+            rows.sort((a, b) => (a.role || a.stage || '').localeCompare(b.role || b.stage || ''));
+          } else if (sortBy === 'stage_desc') {
+            rows.sort((a, b) => (b.role || b.stage || '').localeCompare(a.role || a.stage || ''));
+          } else if (sortBy === 'pathway_asc') {
+            rows.sort((a, b) => (a.pathway || 'standard').localeCompare(b.pathway || 'standard'));
+          } else if (sortBy === 'pathway_desc') {
+            rows.sort((a, b) => (b.pathway || 'standard').localeCompare(a.pathway || 'standard'));
+          } else if (sortBy === 'id_asc') {
+            rows.sort((a, b) => Number(a.id) - Number(b.id));
+          } else if (sortBy === 'id_desc') {
+            rows.sort((a, b) => Number(b.id) - Number(a.id));
+          }
+          
           for (const x of rows) {
             const label = `#${x.id} ${x.role || x.stage}`;
             out.push({ name: label, value: `Pathway: ${x.pathway || 'standard'} • Created: <t:${Math.floor(Number(x.created_at || x.started_at || Date.now()) / 1000)}:f>`, inline: false });
@@ -199,12 +414,36 @@ module.exports = {
         } catch (e) {
           // ignore
         }
-        return out;
+        return { fields: out, filters };
       }
 
       // items view
       const itemEntries = Object.entries(items || {}).filter(([, qty]) => qty > 0);
-      if (itemEntries.length === 0) return out; // no items -> keep fields empty so embed shows "Inventory empty"
+      if (itemEntries.length === 0) return { fields: out, filters: [] }; // no items -> keep fields empty so embed shows "Inventory empty"
+
+      // Build item list with metadata for sorting
+      const itemList = [];
+      for (const [itemId, qty] of itemEntries) {
+        const shopItem = (shopConfig.items || []).find(it => it.id === itemId);
+        const label = shopItem ? shopItem.name : itemId;
+        itemList.push({ 
+          name: label, 
+          value: String(qty), 
+          inline: true,
+          quantity: qty
+        });
+      }
+      
+      // Apply sorting
+      if (sortBy === 'name_asc') {
+        itemList.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (sortBy === 'name_desc') {
+        itemList.sort((a, b) => b.name.localeCompare(a.name));
+      } else if (sortBy === 'quantity_desc') {
+        itemList.sort((a, b) => b.quantity - a.quantity);
+      } else if (sortBy === 'quantity_asc') {
+        itemList.sort((a, b) => a.quantity - b.quantity);
+      }
 
       // only show avatar when there are items to display
       try {
@@ -215,16 +454,18 @@ module.exports = {
         try { require('../../utils/logger').get('command:inventory').warn('Failed computing avatar URL in inventory getFieldsForType', { error: e && (e.stack || e) }); } catch (le) { try { fallbackLogger.warn('Failed logging inventory avatar URL error in getFieldsForType', le && (le.stack || le)); } catch (ignored) {} }
       }
 
-      for (const [itemId, qty] of itemEntries) {
-        const shopItem = (shopConfig.items || []).find(it => it.id === itemId);
-        const label = shopItem ? shopItem.name : itemId;
-        out.push({ name: `${label}`, value: String(qty), inline: true });
+      for (const item of itemList) {
+        out.push({ name: item.name, value: item.value, inline: item.inline });
       }
-      return out;
+      return { fields: out, filters: [] };
     };
 
     let currentType = 'eggs';
-    let fieldsForType = await getFieldsForType(currentType);
+    let currentSort = 'name_asc'; // Default sort for eggs
+    let currentFilter = 'all';
+    let result = await getFieldsForType(currentType, currentSort, currentFilter);
+    let fieldsForType = result.fields;
+    let availableFilters = result.filters;
     let pages = chunkPages(fieldsForType);
     let page = 0;
     const [royalJellyBalance, creditsBalance] = await Promise.all([
@@ -238,7 +479,7 @@ module.exports = {
       page,
       pages,
       { royal_jelly: royalJellyBalance, credits: creditsBalance },
-      { showControls: true, disablePrev: page === 0, disableNext: page >= pages.length - 1 }
+      { showControls: true, disablePrev: page === 0, disableNext: page >= pages.length - 1, currentSort, currentFilter, availableFilters }
     );
 
     try {
@@ -268,7 +509,18 @@ module.exports = {
       try {
         if (i.customId === 'inventory-type') {
           currentType = i.values && i.values[0] ? i.values[0] : 'eggs';
-          fieldsForType = await getFieldsForType(currentType);
+          // Set appropriate default sort and filter for each type
+          if (currentType === 'eggs' || currentType === 'items') {
+            currentSort = 'name_asc';
+          } else if (currentType === 'hosts' || currentType === 'xenos') {
+            currentSort = 'date_desc';
+          } else {
+            currentSort = 'name_asc'; // fallback
+          }
+          currentFilter = 'all'; // Reset filter when changing type
+          result = await getFieldsForType(currentType, currentSort, currentFilter);
+          fieldsForType = result.fields;
+          availableFilters = result.filters;
           pages = chunkPages(fieldsForType);
           page = 0;
           const [balRoyal, balCredits] = await Promise.all([
@@ -281,7 +533,51 @@ module.exports = {
             page,
             pages,
             { royal_jelly: balRoyal, credits: balCredits },
-            { showControls: true, disablePrev: page === 0, disableNext: pages.length <= 1 }
+            { showControls: true, disablePrev: page === 0, disableNext: pages.length <= 1, currentSort, currentFilter, availableFilters }
+          );
+          await i.update({ components: v2Blocks });
+          return;
+        }
+        if (i.customId === 'inventory-sort') {
+          currentSort = i.values && i.values[0] ? i.values[0] : 'date_desc';
+          result = await getFieldsForType(currentType, currentSort, currentFilter);
+          fieldsForType = result.fields;
+          availableFilters = result.filters;
+          pages = chunkPages(fieldsForType);
+          page = 0; // Reset to first page after sorting
+          const [balRoyal, balCredits] = await Promise.all([
+            userModel.getCurrencyForGuild(String(target.id), guildId, 'royal_jelly'),
+            userModel.getCurrencyForGuild(String(target.id), guildId, 'credits')
+          ]);
+          const v2Blocks = makeInventoryComponents(
+            target,
+            currentType,
+            page,
+            pages,
+            { royal_jelly: balRoyal, credits: balCredits },
+            { showControls: true, disablePrev: page === 0, disableNext: pages.length <= 1, currentSort, currentFilter, availableFilters }
+          );
+          await i.update({ components: v2Blocks });
+          return;
+        }
+        if (i.customId === 'inventory-filter') {
+          currentFilter = i.values && i.values[0] ? i.values[0] : 'all';
+          result = await getFieldsForType(currentType, currentSort, currentFilter);
+          fieldsForType = result.fields;
+          availableFilters = result.filters;
+          pages = chunkPages(fieldsForType);
+          page = 0; // Reset to first page after filtering
+          const [balRoyal, balCredits] = await Promise.all([
+            userModel.getCurrencyForGuild(String(target.id), guildId, 'royal_jelly'),
+            userModel.getCurrencyForGuild(String(target.id), guildId, 'credits')
+          ]);
+          const v2Blocks = makeInventoryComponents(
+            target,
+            currentType,
+            page,
+            pages,
+            { royal_jelly: balRoyal, credits: balCredits },
+            { showControls: true, disablePrev: page === 0, disableNext: pages.length <= 1, currentSort, currentFilter, availableFilters }
           );
           await i.update({ components: v2Blocks });
           return;
@@ -299,7 +595,7 @@ module.exports = {
             page,
             pages,
             { royal_jelly: bal2Royal, credits: bal2Credits },
-            { showControls: true, disablePrev: page === 0, disableNext: page >= pages.length - 1 }
+            { showControls: true, disablePrev: page === 0, disableNext: page >= pages.length - 1, currentSort, currentFilter, availableFilters }
           );
           await i.update({ components: v2Blocks });
           return;
@@ -320,7 +616,7 @@ module.exports = {
           page,
           pages,
           { royal_jelly: balRoyal, credits: balCredits },
-          { showControls: false }
+          { showControls: false, currentSort, currentFilter, availableFilters }
         );
         await safeReply(interaction, { components: finalBlocks, flags: MessageFlags.IsComponentsV2 }, { loggerName: 'command:inventory' });
       } catch (e) {
