@@ -303,3 +303,37 @@ Date: 2026-03-02
 - Version bumped to `1.7.0`.
 - Updated release documentation to include all post-`1.6.0` shipped changes.
 
+## v1.8.0 — Gift fix, ephemeral interactions, and critical memory leak patch
+
+Date: 2026-03-02
+
+### Critical Bug Fixes
+
+- **Memory leak patch**: Fixed critical memory leak affecting message component collectors across 9 commands (hunt, hunt-list, ping, hive, evolve, emojis, pathway, help, and gift).
+  - Root cause: Removed collector `filter` functions were replaced with manual user ID checks inside collect handlers, causing all interactions from all users to be processed instead of filtered at collector creation time.
+  - Impact: Memory accumulation from 224 MB → 1473 MB before OOM crash on deployed bot.
+  - Solution: Restored proper `filter: i => i.user.id === userId` to all affected collectors to prevent processing unwanted interactions and eliminate unbounded memory growth.
+  - All 9 commands validated and tested; collectors now properly filter interactions at creation time.
+
+### Features
+
+- **Gift command SQL fix**: Fixed `/gift xenomorph` error when users had active evolution queue jobs.
+  - Changed `xenomorph_id` to `xeno_id` in evolution_queue table query (line 367) to match actual schema.
+- **Devephemeral command**: Added developer-only text command `/devephemeral` for testing Components v2 ephemeral interaction responses.
+  - Text-only execution (no slash command data export).
+  - Demonstrates proper ContainerBuilder and TextDisplayBuilder usage with MessageFlags.IsComponentsV2.
+
+### UX Improvements
+
+- **Ephemeral help interactions**: Fixed `/help` command to properly display as ephemeral when appropriate.
+  - Added missing `ephemeral: isEphemeral` flag to deferReply and safeReply calls.
+- **Ephemeral permission errors**: User permission validation errors across all affected commands now display as ephemeral responses instead of failing silently.
+  - Prevents error messages from cluttering the main chat channel.
+
+### Internal
+
+- Version bumped to `1.8.0`.
+- All affected commands load successfully and pass validation.
+- Critical memory safety restored to production bot.
+
+
