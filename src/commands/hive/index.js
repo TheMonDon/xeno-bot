@@ -29,6 +29,7 @@ const HIVE_NAV_MEMBERS_ID = 'hive-nav-members';
 const HIVE_MEMBERS_PAGINATION_PREFIX = 'hive-members';
 const HIVE_MEMBERS_PREV_PAGE = `${HIVE_MEMBERS_PAGINATION_PREFIX}-prev-page`;
 const HIVE_MEMBERS_NEXT_PAGE = `${HIVE_MEMBERS_PAGINATION_PREFIX}-next-page`;
+const HIVE_MEMBERS_PAGE_SIZE = 6;
 const HIVE_MODULES_PAGINATION_PREFIX = 'hive-modules';
 const HIVE_MODULES_PREV_PAGE = `${HIVE_MODULES_PAGINATION_PREFIX}-prev-page`;
 const HIVE_MODULES_NEXT_PAGE = `${HIVE_MODULES_PAGINATION_PREFIX}-next-page`;
@@ -403,7 +404,7 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
     const pagination = getPaginationState({
       items: members,
       pageIdx: Number(membersPage || 0),
-      pageSize: 10
+      pageSize: HIVE_MEMBERS_PAGE_SIZE
     });
     const pageMembers = pagination.pageItems;
     
@@ -957,7 +958,7 @@ module.exports = {
           }
           else if (i.customId === HIVE_MEMBERS_PREV_PAGE) {
             const members = Array.isArray(xenos) ? xenos.filter(x => Number(x.hive_id) === Number(viewHive.id)) : [];
-            const pagination = getPaginationState({ items: members, pageIdx: currentMembersPage, pageSize: 10 });
+            const pagination = getPaginationState({ items: members, pageIdx: currentMembersPage, pageSize: HIVE_MEMBERS_PAGE_SIZE });
             const maxPage = Math.max(1, pagination.totalPages);
             currentMembersPage = Math.max(0, Math.min(maxPage - 1, currentMembersPage - 1));
             await i.update({ components: buildHiveScreen({ screen: 'members', hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, membersPage: currentMembersPage, client: interaction.client }) });
@@ -965,7 +966,7 @@ module.exports = {
           }
           else if (i.customId === HIVE_MEMBERS_NEXT_PAGE) {
             const members = Array.isArray(xenos) ? xenos.filter(x => Number(x.hive_id) === Number(viewHive.id)) : [];
-            const pagination = getPaginationState({ items: members, pageIdx: currentMembersPage, pageSize: 10 });
+            const pagination = getPaginationState({ items: members, pageIdx: currentMembersPage, pageSize: HIVE_MEMBERS_PAGE_SIZE });
             const maxPage = Math.max(1, pagination.totalPages);
             currentMembersPage = Math.max(0, Math.min(maxPage - 1, currentMembersPage + 1));
             await i.update({ components: buildHiveScreen({ screen: 'members', hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, membersPage: currentMembersPage, client: interaction.client }) });
