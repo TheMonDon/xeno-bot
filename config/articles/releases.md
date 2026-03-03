@@ -394,5 +394,50 @@ This release focuses on code quality improvements, performance optimization, and
 - All utilities validated and loaded successfully.
 - No breaking changes; safe to deploy in production.
 
+## v1.9.1 — Bug fixes and command reliability
+
+Date: 2026-03-03
+
+This is a bug-fix-only patch release focused on command stability, pagination correctness, and forum workflow reliability.
+
+### Command & UI Fixes
+
+- **Setup egg-limit stability**
+  - Fixed runtime logger reference issues in `/setup egg-limit` error paths.
+  - Kept max egg limit validation at 10 with reliable error handling.
+
+- **Eggs command subcommand fixes**
+  - Fixed `/eggs info` not working by implementing missing handler logic.
+  - Added `/eggs destroy` handler support and safer unknown-subcommand fallback messaging.
+
+- **Eggs list behavior fixes**
+  - Fixed list pagination edge cases that could stop navigation early.
+  - Fixed stale timestamp rendering (`Hatched: 56 years ago`) by using correct hatch timestamps.
+  - Fixed `View List` button from result screens by attaching collectors in those flows.
+  - Adjusted collected-entry behavior:
+    - Immediate collect action still updates the current view to show `Collected`.
+    - Fresh `/eggs list` calls only show uncollected entries.
+
+- **Hunt list consistency**
+  - Fixed `hunt-list` quick hunt button to reuse `/hunt` execution flow so cooldown and hunt logic are consistent.
+  - Updated empty-state behavior so `/hunt-list` still opens list UI when no hosts are owned.
+
+### Forum Bug Report Workflow Fixes
+
+- Added bug-report forum automation for new thread posts with a `Mark Resolved` action.
+- Fixed thread create compatibility issues (`ButtonBuilder is not a constructor`) by using runtime-safe component payloads.
+- Updated resolve-button permissions to allow only **thread owner** or **guild owner**.
+- Resolve action now sends a response, then archives and locks the thread.
+- Forum post notice message now uses Components V2 payload style.
+
+### Configuration/Data Fixes
+
+- Reorganized emoji configuration ordering and applied emoji-related display corrections used by command output flows.
+
+### Internal
+
+- Version bumped to `1.9.1`.
+- Patch release contains no intentional breaking changes.
+
 
 
