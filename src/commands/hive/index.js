@@ -1,5 +1,5 @@
 const { ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize } = require('discord.js');
-const { ActionRowBuilder, SecondaryButtonBuilder, PrimaryButtonBuilder, DangerButtonBuilder } = require('@discordjs/builders');
+const { ActionRowBuilder, SecondaryButtonBuilder, PrimaryButtonBuilder, DangerButtonBuilder, StringSelectMenuBuilder } = require('@discordjs/builders');
 const hiveModel = require('../../models/hive');
 const xenomorphModel = require('../../models/xenomorph');
 const userModel = require('../../models/user');
@@ -17,6 +17,42 @@ const HIVE_DELETE_CANCEL_ID = 'hive-delete-cancel';
 const HIVE_ACTION_REFRESH_ID = 'hive-action-refresh';
 const HIVE_ACTION_UPGRADE_QUEEN_ID = 'hive-action-upgrade-queen';
 const HIVE_ACTION_UPGRADE_MODULE_ID = 'hive-action-upgrade-module';
+const HIVE_NAV_ASSIGN_QUEEN_ID = 'hive-nav-assign-queen';
+const HIVE_NAV_ADD_XENOS_ID = 'hive-nav-add-xenos';
+const HIVE_ASSIGN_QUEEN_SELECT_ID = 'hive-select-assign-queen';
+const HIVE_ADD_XENOS_SELECT_ID = 'hive-select-add-xenos';
+
+function isEvolvedXeno(x) {
+  const role = String(x?.role || '').toLowerCase();
+  const stage = String(x?.stage || '').toLowerCase();
+  return role !== 'egg' && stage !== 'egg';
+}
+
+function toXenoOption(x) {
+  const role = x?.role || x?.stage || 'xeno';
+  const label = `#${x.id} ${String(role)}`.slice(0, 100);
+  const descriptor = [x?.pathway ? `Path: ${x.pathway}` : null, `Lv ${Number(x?.level || 1)}`].filter(Boolean).join(' • ');
+  const description = descriptor.slice(0, 100);
+  return { label, value: String(x.id), description };
+}
+
+function getAssignableQueenXenos(xenos, hiveId) {
+  const hiveIdNum = Number(hiveId);
+  return (Array.isArray(xenos) ? xenos : []).filter(x => {
+    if (!isEvolvedXeno(x)) return false;
+    if (x.hive_id == null) return true;
+    return Number(x.hive_id) === hiveIdNum;
+  });
+}
+
+function getAddableXenos(xenos, hiveId) {
+  const hiveIdNum = Number(hiveId);
+  return (Array.isArray(xenos) ? xenos : []).filter(x => {
+    if (!isEvolvedXeno(x)) return false;
+    if (x.hive_id == null) return true;
+    return Number(x.hive_id) !== hiveIdNum;
+  });
+}
 
 function buildNavigationRow({ screen, disabled = false }) {
   return new ActionRowBuilder().addComponents(
@@ -25,6 +61,19 @@ function buildNavigationRow({ screen, disabled = false }) {
     new SecondaryButtonBuilder().setCustomId('hive-nav-milestones').setLabel('Milestones').setDisabled(screen === 'milestones' || disabled),
     new SecondaryButtonBuilder().setCustomId('hive-nav-queen').setLabel('Queen').setDisabled(screen === 'queen' || disabled),
     new SecondaryButtonBuilder().setCustomId('hive-nav-types').setLabel('Types').setDisabled(screen === 'types' || disabled)
+  );
+}
+
+function buildManagementRow({ screen, disabled = false, canAct = true }) {
+  return new ActionRowBuilder().addComponents(
+    new SecondaryButtonBuilder()
+      .setCustomId(HIVE_NAV_ASSIGN_QUEEN_ID)
+      .setLabel('Assign Queen')
+      .setDisabled(disabled || screen === 'assign-queen' || !canAct),
+    new SecondaryButtonBuilder()
+      .setCustomId(HIVE_NAV_ADD_XENOS_ID)
+      .setLabel('Add Xenos')
+      .setDisabled(disabled || screen === 'add-xenos' || !canAct)
   );
 }
 
@@ -81,17 +130,23 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
     modules: '## 🔧 Hive Modules',
     milestones: '## 🎯 Hive Milestones',
     queen: '## 👑 Queen Status',
-    types: '## ℹ️ Hive Types'
+    types: '## ℹ️ Hive Types',
+    'assign-queen': '## 👑 Assign Hive Queen',
+    'add-xenos': '## 🧬 Add Xenos to Hive'
   };
 
   addV2TitleWithBotThumbnail({ container, title: screenTitles[screen] || screenTitles.stats, client });
   if (notice) container.addTextDisplayComponents(new TextDisplayBuilder().setContent(notice));
 
   const hiveType = hive.type || hive.hive_type || 'default';
+  const hivePopulation = Array.isArray(rows.xenos)
+    ? rows.xenos.filter(x => Number(x.hive_id) === Number(hive.id)).length
+    : null;
   const snapshotLines = [
     `**Owner:** <@${targetUser.id}>`,
     `**Type:** \`${hiveType}\``,
     `**Capacity:** ${hive.capacity || 0}`,
+    ...(hivePopulation !== null ? [`**Members:** ${hivePopulation}/${hive.capacity || 0}`] : []),
     `**Jelly/hour:** ${hive.jelly_production_per_hour || 0}`,
     `**Queen:** ${hive.queen_xeno_id || 'Unassigned'}`
   ];
@@ -153,6 +208,26 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
       .join('\n\n');
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(typeLines || 'No hive types found'));
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`_Current hive type: \`${currentType}\`_`));
+  } else if (screen === 'assign-queen') {
+    const assignable = getAssignableQueenXenos(rows.xenos || [], hive.id);
+    const currentQueen = hive.queen_xeno_id ? `#${hive.queen_xeno_id}` : 'None';
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Current Queen:** ${currentQueen}`));
+    if (!canAct) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('Only the hive owner can assign a queen.'));
+    } else if (!assignable.length) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('No eligible xenomorphs found. Evolve xenos first or move one into this hive.'));
+    } else {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`Select a queen from ${assignable.length} eligible xenomorph(s).`));
+    }
+  } else if (screen === 'add-xenos') {
+    const addable = getAddableXenos(rows.xenos || [], hive.id);
+    if (!canAct) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('Only the hive owner can add xenos to this hive.'));
+    } else if (!addable.length) {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('No available xenomorphs to add right now.'));
+    } else {
+      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`Select one or more xenomorphs to add (${addable.length} available).`));
+    }
   }
 
   if (!expired) {
@@ -162,6 +237,38 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
       new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
     );
     container.addActionRowComponents(buildNavigationRow({ screen, disabled: false }));
+    container.addActionRowComponents(buildManagementRow({ screen, disabled: false, canAct }));
+
+    if (screen === 'assign-queen') {
+      const assignable = getAssignableQueenXenos(rows.xenos || [], hive.id).slice(0, 25);
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId(HIVE_ASSIGN_QUEEN_SELECT_ID)
+            .setPlaceholder(assignable.length ? 'Select a xenomorph as queen' : 'No eligible xenomorphs')
+            .setDisabled(!canAct || assignable.length === 0)
+            .setMaxValues(1)
+            .setMinValues(1)
+            .addOptions(assignable.length ? assignable.map(toXenoOption) : [{ label: 'No eligible xenomorphs', value: 'none', description: 'Evolve or assign xenos first' }])
+        )
+      );
+    }
+
+    if (screen === 'add-xenos') {
+      const addable = getAddableXenos(rows.xenos || [], hive.id).slice(0, 25);
+      const maxValues = Math.max(1, Math.min(10, addable.length));
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId(HIVE_ADD_XENOS_SELECT_ID)
+            .setPlaceholder(addable.length ? 'Select xenomorphs to add' : 'No xenos available to add')
+            .setDisabled(!canAct || addable.length === 0)
+            .setMinValues(1)
+            .setMaxValues(maxValues)
+            .addOptions(addable.length ? addable.map(toXenoOption) : [{ label: 'No xenomorphs available', value: 'none', description: 'All eligible xenos are already in this hive' }])
+        )
+      );
+    }
   } else {
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Hive view expired_'));
   }
@@ -424,7 +531,7 @@ module.exports = {
                       new PrimaryButtonBuilder().setLabel('Create Hive').setCustomId('hive-create-prompt').setDisabled(true)
                     )
                   );
-                  await interact.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
+                  await i.update({ components: [container], flags: MessageFlags.IsComponentsV2 });
                   return;
                 }
 
@@ -467,9 +574,11 @@ module.exports = {
 
         let modules = [];
         let milestones = [];
+        let xenos = [];
         try {
           modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => []);
           milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => []);
+          xenos = await xenomorphModel.getXenosByOwner(String(targetUser.id)).catch(() => []);
         } catch (e) {
           // Silently fail on database errors for optional tables
         }
@@ -477,7 +586,7 @@ module.exports = {
         let resources = { royal_jelly: royalJelly };
 
         await safeReply(interaction, {
-          components: buildHiveScreen({ screen: initialScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, client: interaction.client }),
+          components: buildHiveScreen({ screen: initialScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, client: interaction.client }),
           flags: MessageFlags.IsComponentsV2,
           ephemeral: true
         }, { loggerName: 'command:hive' });
@@ -500,9 +609,10 @@ module.exports = {
               if (refreshedHive) viewHive = refreshedHive;
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
               milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => milestones);
+              xenos = await xenomorphModel.getXenosByOwner(String(targetUser.id)).catch(() => xenos);
               let rjRefresh = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               resources = { royal_jelly: rjRefresh };
-              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: '✅ Refreshed hive data.', client: interaction.client }) });
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: '✅ Refreshed hive data.', client: interaction.client }) });
               return;
             }
 
@@ -515,7 +625,7 @@ module.exports = {
               let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               if (rj < cost) {
                 resources = { royal_jelly: rj };
-                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly. Need ${formatNumber(cost)}.`, client: interaction.client }) });
+                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `❌ Not enough Royal Jelly. Need ${formatNumber(cost)}.`, client: interaction.client }) });
                 return;
               }
               await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -cost);
@@ -523,7 +633,7 @@ module.exports = {
               viewHive = { ...viewHive, jelly_production_per_hour: Number(viewHive.jelly_production_per_hour || 0) + 1 };
               rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               resources = { royal_jelly: rj };
-              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Queen upgraded. +1 jelly/hour (spent ${formatNumber(cost)} RJ).`, client: interaction.client }) });
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Queen upgraded. +1 jelly/hour (spent ${formatNumber(cost)} RJ).`, client: interaction.client }) });
               return;
             }
 
@@ -547,14 +657,14 @@ module.exports = {
               }
 
               if (!candidate) {
-                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: '✅ All modules are already at max level.', client: interaction.client }) });
+                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: '✅ All modules are already at max level.', client: interaction.client }) });
                 return;
               }
 
               let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               if (rj < candidate.cost) {
                 resources = { royal_jelly: rj };
-                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly for ${candidate.cfg.display}. Need ${formatNumber(candidate.cost)}.`, client: interaction.client }) });
+                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `❌ Not enough Royal Jelly for ${candidate.cfg.display}. Need ${formatNumber(candidate.cost)}.`, client: interaction.client }) });
                 return;
               }
 
@@ -567,7 +677,72 @@ module.exports = {
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
               let rjAfterModuleUpgrade = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               resources = { royal_jelly: rjAfterModuleUpgrade };
-              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Upgraded ${candidate.cfg.display} to level ${candidate.level + 1}.`, client: interaction.client }) });
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Upgraded ${candidate.cfg.display} to level ${candidate.level + 1}.`, client: interaction.client }) });
+              return;
+            }
+
+            if (i.customId === HIVE_ASSIGN_QUEEN_SELECT_ID) {
+              if (!canAct) {
+                await i.reply({ content: 'Only the hive owner can assign a queen.', ephemeral: true });
+                return;
+              }
+
+              const queenId = Number(i.values && i.values[0]);
+              const eligible = getAssignableQueenXenos(xenos || [], viewHive.id);
+              if (!queenId || !eligible.some(x => Number(x.id) === queenId)) {
+                await i.reply({ content: 'That xenomorph is no longer eligible to become queen.', ephemeral: true });
+                return;
+              }
+
+              await hiveModel.updateHiveById(viewHive.id, { queen_xeno_id: queenId });
+              const queen = eligible.find(x => Number(x.id) === queenId);
+              if (queen && Number(queen.hive_id) !== Number(viewHive.id)) {
+                await db.knex('xenomorphs')
+                  .where({ id: queenId, owner_id: String(userId) })
+                  .update({ hive_id: viewHive.id, updated_at: db.knex.fn.now() })
+                  .catch(async () => {
+                    await db.knex('xenomorphs').where({ id: queenId, owner_id: String(userId) }).update({ hive_id: viewHive.id });
+                  });
+              }
+
+              viewHive = { ...viewHive, queen_xeno_id: queenId };
+              xenos = await xenomorphModel.getXenosByOwner(String(targetUser.id)).catch(() => xenos);
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Assigned xenomorph #${queenId} as hive queen.`, client: interaction.client }) });
+              return;
+            }
+
+            if (i.customId === HIVE_ADD_XENOS_SELECT_ID) {
+              if (!canAct) {
+                await i.reply({ content: 'Only the hive owner can add xenos.', ephemeral: true });
+                return;
+              }
+
+              const selectedIds = Array.from(new Set((i.values || []).map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0)));
+              if (!selectedIds.length) {
+                await i.reply({ content: 'Select at least one xenomorph to add.', ephemeral: true });
+                return;
+              }
+
+              const eligibleIds = new Set(getAddableXenos(xenos || [], viewHive.id).map(x => Number(x.id)));
+              const finalIds = selectedIds.filter(id => eligibleIds.has(id));
+              if (!finalIds.length) {
+                await i.reply({ content: 'Those xenomorphs are no longer eligible to add.', ephemeral: true });
+                return;
+              }
+
+              const updatedCount = await db.knex('xenomorphs')
+                .where({ owner_id: String(userId) })
+                .whereIn('id', finalIds)
+                .update({ hive_id: viewHive.id, updated_at: db.knex.fn.now() })
+                .catch(async () => {
+                  return db.knex('xenomorphs')
+                    .where({ owner_id: String(userId) })
+                    .whereIn('id', finalIds)
+                    .update({ hive_id: viewHive.id });
+                });
+
+              xenos = await xenomorphModel.getXenosByOwner(String(targetUser.id)).catch(() => xenos);
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Added ${formatNumber(updatedCount || finalIds.length)} xenomorph(s) to this hive.`, client: interaction.client }) });
               return;
             }
 
@@ -576,15 +751,17 @@ module.exports = {
             else if (i.customId === 'hive-nav-milestones') currentScreen = 'milestones';
             else if (i.customId === 'hive-nav-queen') currentScreen = 'queen';
             else if (i.customId === 'hive-nav-types') currentScreen = 'types';
+            else if (i.customId === HIVE_NAV_ASSIGN_QUEEN_ID) currentScreen = 'assign-queen';
+            else if (i.customId === HIVE_NAV_ADD_XENOS_ID) currentScreen = 'add-xenos';
 
-            await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: false, canAct, client: interaction.client }) });
+            await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, client: interaction.client }) });
           } catch (err) {
             try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hive' }); } catch (_) {}
           }
         });
 
         collector.on('end', () => {
-          try { msg.edit({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources }, expired: true, canAct, client: interaction.client }) }).catch(() => {}); } catch (_) {}
+          try { msg.edit({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: true, canAct, client: interaction.client }) }).catch(() => {}); } catch (_) {}
         });
         return;
       }
@@ -593,9 +770,11 @@ module.exports = {
         let viewHive = hive;
         let modules = [];
         let milestones = [];
+        let xenos = [];
         try {
           modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => []);
           milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => []);
+          xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => []);
         } catch (e) {
           // Silently fail on database errors for optional tables
         }
@@ -604,7 +783,7 @@ module.exports = {
         const canAct = true;
 
         await safeReply(interaction, {
-          components: buildHiveScreen({ screen: 'types', hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, client: interaction.client }),
+          components: buildHiveScreen({ screen: 'types', hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, client: interaction.client }),
           flags: MessageFlags.IsComponentsV2,
           ephemeral: true
         }, { loggerName: 'command:hive' });
@@ -627,9 +806,10 @@ module.exports = {
               if (refreshedHive) viewHive = refreshedHive;
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
               milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => milestones);
+              xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => xenos);
               let rjQueenRefresh = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               resources = { royal_jelly: rjQueenRefresh };
-              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: '✅ Refreshed hive data.', client: interaction.client }) });
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: '✅ Refreshed hive data.', client: interaction.client }) });
               return;
             }
 
@@ -638,7 +818,7 @@ module.exports = {
               let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               if (rj < cost) {
                 resources = { royal_jelly: rj };
-                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly. Need ${formatNumber(cost)}.`, client: interaction.client }) });
+                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `❌ Not enough Royal Jelly. Need ${formatNumber(cost)}.`, client: interaction.client }) });
                 return;
               }
               await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -cost);
@@ -646,7 +826,7 @@ module.exports = {
               viewHive = { ...viewHive, jelly_production_per_hour: Number(viewHive.jelly_production_per_hour || 0) + 1 };
               rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               resources = { royal_jelly: rj };
-              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Queen upgraded. +1 jelly/hour (spent ${formatNumber(cost)} RJ).`, client: interaction.client }) });
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Queen upgraded. +1 jelly/hour (spent ${formatNumber(cost)} RJ).`, client: interaction.client }) });
               return;
             }
 
@@ -665,14 +845,14 @@ module.exports = {
               }
 
               if (!candidate) {
-                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: '✅ All modules are already at max level.', client: interaction.client }) });
+                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: '✅ All modules are already at max level.', client: interaction.client }) });
                 return;
               }
 
               let rjCheck = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               if (rjCheck < candidate.cost) {
                 resources = { royal_jelly: rjCheck };
-                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `❌ Not enough Royal Jelly for ${candidate.cfg.display}. Need ${formatNumber(candidate.cost)}.`, client: interaction.client }) });
+                await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `❌ Not enough Royal Jelly for ${candidate.cfg.display}. Need ${formatNumber(candidate.cost)}.`, client: interaction.client }) });
                 return;
               }
 
@@ -685,7 +865,62 @@ module.exports = {
               modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
               let rjAfterUpgrade = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
               resources = { royal_jelly: rjAfterUpgrade };
-              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, notice: `✅ Upgraded ${candidate.cfg.display} to level ${candidate.level + 1}.`, client: interaction.client }) });
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Upgraded ${candidate.cfg.display} to level ${candidate.level + 1}.`, client: interaction.client }) });
+              return;
+            }
+
+            if (i.customId === HIVE_ASSIGN_QUEEN_SELECT_ID) {
+              const queenId = Number(i.values && i.values[0]);
+              const eligible = getAssignableQueenXenos(xenos || [], viewHive.id);
+              if (!queenId || !eligible.some(x => Number(x.id) === queenId)) {
+                await i.reply({ content: 'That xenomorph is no longer eligible to become queen.', ephemeral: true });
+                return;
+              }
+
+              await hiveModel.updateHiveById(viewHive.id, { queen_xeno_id: queenId });
+              const queen = eligible.find(x => Number(x.id) === queenId);
+              if (queen && Number(queen.hive_id) !== Number(viewHive.id)) {
+                await db.knex('xenomorphs')
+                  .where({ id: queenId, owner_id: String(userId) })
+                  .update({ hive_id: viewHive.id, updated_at: db.knex.fn.now() })
+                  .catch(async () => {
+                    await db.knex('xenomorphs').where({ id: queenId, owner_id: String(userId) }).update({ hive_id: viewHive.id });
+                  });
+              }
+
+              viewHive = { ...viewHive, queen_xeno_id: queenId };
+              xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => xenos);
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Assigned xenomorph #${queenId} as hive queen.`, client: interaction.client }) });
+              return;
+            }
+
+            if (i.customId === HIVE_ADD_XENOS_SELECT_ID) {
+              const selectedIds = Array.from(new Set((i.values || []).map(v => Number(v)).filter(n => Number.isFinite(n) && n > 0)));
+              if (!selectedIds.length) {
+                await i.reply({ content: 'Select at least one xenomorph to add.', ephemeral: true });
+                return;
+              }
+
+              const eligibleIds = new Set(getAddableXenos(xenos || [], viewHive.id).map(x => Number(x.id)));
+              const finalIds = selectedIds.filter(id => eligibleIds.has(id));
+              if (!finalIds.length) {
+                await i.reply({ content: 'Those xenomorphs are no longer eligible to add.', ephemeral: true });
+                return;
+              }
+
+              const updatedCount = await db.knex('xenomorphs')
+                .where({ owner_id: String(userId) })
+                .whereIn('id', finalIds)
+                .update({ hive_id: viewHive.id, updated_at: db.knex.fn.now() })
+                .catch(async () => {
+                  return db.knex('xenomorphs')
+                    .where({ owner_id: String(userId) })
+                    .whereIn('id', finalIds)
+                    .update({ hive_id: viewHive.id });
+                });
+
+              xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => xenos);
+              await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Added ${formatNumber(updatedCount || finalIds.length)} xenomorph(s) to this hive.`, client: interaction.client }) });
               return;
             }
 
@@ -694,15 +929,17 @@ module.exports = {
             else if (i.customId === 'hive-nav-milestones') currentScreen = 'milestones';
             else if (i.customId === 'hive-nav-queen') currentScreen = 'queen';
             else if (i.customId === 'hive-nav-types') currentScreen = 'types';
+            else if (i.customId === HIVE_NAV_ASSIGN_QUEEN_ID) currentScreen = 'assign-queen';
+            else if (i.customId === HIVE_NAV_ADD_XENOS_ID) currentScreen = 'add-xenos';
 
-            await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: false, canAct, client: interaction.client }) });
+            await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, client: interaction.client }) });
           } catch (err) {
             try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hive' }); } catch (_) {}
           }
         });
 
         collector.on('end', () => {
-          try { msg.edit({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources }, expired: true, canAct, client: interaction.client }) }).catch(() => {}); } catch (_) {}
+          try { msg.edit({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: true, canAct, client: interaction.client }) }).catch(() => {}); } catch (_) {}
         });
         return;
       }
