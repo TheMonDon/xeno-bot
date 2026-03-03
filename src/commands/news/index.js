@@ -272,6 +272,9 @@ module.exports = {
             data.meta = data.meta || {};
             data.meta.lastReadArticleAt = latestInfo.latest;
             await userModel.updateUserDataRawById(u.id, data);
+            // Invalidate news reminder cache so it fetches fresh data next interaction
+            const newsReminderCache = require('../../utils/newsReminderCache');
+            newsReminderCache.invalidate(interaction.user.id);
           }
         }
       } catch (e) { try { logger.warn('Failed marking article as read for user', { error: e && (e.stack || e) }); } catch (_) {} }

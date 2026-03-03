@@ -33,20 +33,36 @@ module.exports = {
             if (latestInfo && latestInfo.latest) {
               // don't set reminder when the user is running the news command itself
               if (interaction.commandName !== 'news') {
-                // perform DB lookup asynchronously and do not await so we don't block the interaction handling
-                try {
-                  const userModel = require('../models/user');
-                  userModel.getUserByDiscordId(interaction.user.id).then(u => {
-                    try {
-                      const lastSeen = u?.data?.meta?.lastReadArticleAt || 0;
-                      if (Number(latestInfo.latest) > Number(lastSeen)) {
-                        interaction._newsReminder = true;
-                        interaction._newsLatest = latestInfo.latest;
-                        interaction._newsTitle = latestInfo.title || null;
-                      }
-                    } catch (inner) { /* ignore */ }
-                  }).catch(() => {});
-                } catch (e2) { /* ignore */ }
+                // Check cache first to avoid DB lookup
+                const newsReminderCache = require('../utils/newsReminderCache');
+                const cachedData = newsReminderCache.get(interaction.user.id);
+
+                if (cachedData) {
+                  // Cache hit - use cached timestamp
+                  if (Number(latestInfo.latest) > Number(cachedData.latestTimestamp)) {
+                    interaction._newsReminder = true;
+                    interaction._newsLatest = latestInfo.latest;
+                    interaction._newsTitle = latestInfo.title || null;
+                  }
+                } else {
+                  // Cache miss - fetch from DB and update cache
+                  // perform DB lookup asynchronously and do not await so we don't block the interaction handling
+                  try {
+                    const userModel = require('../models/user');
+                    userModel.getUserByDiscordId(interaction.user.id).then(u => {
+                      try {
+                        const lastSeen = u?.data?.meta?.lastReadArticleAt || 0;
+                        // Update cache with the fetched timestamp
+                        newsReminderCache.set(interaction.user.id, lastSeen);
+                        if (Number(latestInfo.latest) > Number(lastSeen)) {
+                          interaction._newsReminder = true;
+                          interaction._newsLatest = latestInfo.latest;
+                          interaction._newsTitle = latestInfo.title || null;
+                        }
+                      } catch (inner) { /* ignore */ }
+                    }).catch(() => {});
+                  } catch (e2) { /* ignore */ }
+                }
               }
             }
           } catch (e) {
