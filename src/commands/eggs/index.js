@@ -368,8 +368,7 @@ module.exports = {
                   return;
                 }
                 if (i.customId === 'eggs-next-page') {
-                  const activeCount = rows.filter(h => !h.collected).length;
-                  const totalPages = Math.ceil(activeCount / HATCHES_PER_PAGE);
+                  const totalPages = Math.max(1, Math.ceil(rows.length / HATCHES_PER_PAGE));
                   currentPage = Math.min(totalPages - 1, currentPage + 1);
                   await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
                   return;
@@ -499,8 +498,7 @@ module.exports = {
                   return;
                 }
                 if (i.customId === 'eggs-next-page') {
-                  const activeCount = rows.filter(h => !h.collected).length;
-                  const totalPages = Math.ceil(activeCount / HATCHES_PER_PAGE);
+                  const totalPages = Math.max(1, Math.ceil(rows.length / HATCHES_PER_PAGE));
                   currentPage = Math.min(totalPages - 1, currentPage + 1);
                   await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
                   return;
@@ -623,8 +621,7 @@ module.exports = {
                   return;
                 }
                 if (i.customId === 'eggs-next-page') {
-                  const activeCount = rows.filter(h => !h.collected).length;
-                  const totalPages = Math.ceil(activeCount / HATCHES_PER_PAGE);
+                  const totalPages = Math.max(1, Math.ceil(rows.length / HATCHES_PER_PAGE));
                   currentPage = Math.min(totalPages - 1, currentPage + 1);
                   await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
                   return;
