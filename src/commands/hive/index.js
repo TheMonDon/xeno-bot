@@ -229,6 +229,7 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
   } else if (screen === 'modules') {
     const modulesCfg = hiveDefaults.modules || {};
     const moduleCount = Object.keys(modulesCfg).length;
+    const hasQueen = Boolean(hive.queen_xeno_id);
     const upgradedCount = Object.keys(modulesCfg).filter(k => {
       const cfg = modulesCfg[k];
       const moduleRow = rows.modules ? rows.modules.find(r => r.module_key === k) : null;
@@ -236,6 +237,14 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
       return level > (cfg.default_level || 0);
     }).length;
     container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**Progress:** ${upgradedCount}/${moduleCount} modules upgraded`));
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new PrimaryButtonBuilder()
+          .setCustomId(HIVE_ACTION_UPGRADE_QUEEN_ID)
+          .setLabel('Queen +1 (50 RJ)')
+          .setDisabled(!canAct || !hasQueen)
+      )
+    );
     
     // Display each module with inline upgrade button
     const upgradable = getUpgradableModules(rows.modules || []);
@@ -392,12 +401,6 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
   }
 
   if (!expired) {
-    const moduleCandidate = getQuickModuleCandidate(rows.modules || []);
-    const hasQueen = Boolean(hive.queen_xeno_id);
-    container.addActionRowComponents(buildQuickActionsRow({ disabled: false, canAct, hasQueen, queenCost: 50, moduleCandidate }));
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
     const navRows = buildNavigationRow({ screen, disabled: false });
     navRows.forEach(row => container.addActionRowComponents(row));
     container.addActionRowComponents(buildManagementRow({ screen, disabled: false, canAct }));
