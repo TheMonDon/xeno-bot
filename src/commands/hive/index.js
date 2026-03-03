@@ -221,7 +221,7 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${cfg.display}** (${k})\nLevel ${level} — ${cfg.description}`));
       }
     } else {
-      // Display upgradable modules with buttons, then show maxed modules
+      // Display upgradable modules with buttons interleaved
       for (const m of upgradable) {
         container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`**${m.cfg.display}** (${m.moduleKey})\nLevel ${m.level} — ${m.cfg.description}`));
         container.addActionRowComponents(
@@ -232,11 +232,17 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
               .setDisabled(!canAct)
           )
         );
+        container.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small)
+        );
       }
       
       // Show maxed-out modules
       const maxedModules = Object.keys(modulesCfg).filter(k => !upgradable.some(u => u.moduleKey === k));
       if (maxedModules.length > 0) {
+        container.addSeparatorComponents(
+          new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+        );
         const maxedText = maxedModules.map(k => {
           const cfg = modulesCfg[k];
           const moduleRow = rows.modules ? rows.modules.find(r => r.module_key === k) : null;
