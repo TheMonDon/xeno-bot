@@ -19,6 +19,7 @@ const HIVE_ACTION_UPGRADE_QUEEN_ID = 'hive-action-upgrade-queen';
 const HIVE_ACTION_UPGRADE_MODULE_ID = 'hive-action-upgrade-module';
 const HIVE_NAV_ASSIGN_QUEEN_ID = 'hive-nav-assign-queen';
 const HIVE_NAV_ADD_XENOS_ID = 'hive-nav-add-xenos';
+const HIVE_NAV_DELETE_ID = 'hive-nav-delete';
 const HIVE_ASSIGN_QUEEN_SELECT_ID = 'hive-select-assign-queen';
 const HIVE_ADD_XENOS_SELECT_ID = 'hive-select-add-xenos';
 const HIVE_UPGRADE_MODULE_SELECT_ID = 'hive-select-upgrade-module';
@@ -94,7 +95,11 @@ function buildManagementRow({ screen, disabled = false, canAct = true }) {
     new SecondaryButtonBuilder()
       .setCustomId(HIVE_NAV_ADD_XENOS_ID)
       .setLabel('Add Xenos')
-      .setDisabled(disabled || screen === 'add-xenos' || !canAct)
+      .setDisabled(disabled || screen === 'add-xenos' || !canAct),
+    new DangerButtonBuilder()
+      .setCustomId(HIVE_NAV_DELETE_ID)
+      .setLabel('Delete Hive')
+      .setDisabled(disabled || !canAct)
   );
 }
 
@@ -745,6 +750,10 @@ module.exports = {
           else if (i.customId === 'hive-nav-types') currentScreen = 'types';
           else if (i.customId === HIVE_NAV_ASSIGN_QUEEN_ID) currentScreen = 'assign-queen';
           else if (i.customId === HIVE_NAV_ADD_XENOS_ID) currentScreen = 'add-xenos';
+          else if (i.customId === HIVE_NAV_DELETE_ID) {
+            await i.update(buildHiveDeleteV2Payload({ hiveName: viewHive.name || 'your hive', hiveId: viewHive.id, state: 'confirm', includeFlags: false, client: interaction.client }));
+            return;
+          }
           else if (i.customId === HIVE_DELETE_CONFIRM_ID) {
             await hiveModel.deleteHiveById(viewHive.id);
             await i.update(buildHiveDeleteV2Payload({ hiveName: viewHive.name || 'your hive', hiveId: viewHive.id, state: 'deleted', includeFlags: false, client: interaction.client }));
