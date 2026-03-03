@@ -73,6 +73,19 @@ function buildNavigationRow({ screen = 'list', disabled = false }) {
   );
 }
 
+function disableRowComponents(row) {
+  try {
+    if (row && Array.isArray(row.components)) {
+      for (const component of row.components) {
+        if (component && typeof component.setDisabled === 'function') {
+          component.setDisabled(true);
+        }
+      }
+    }
+  } catch (_) {}
+  return row;
+}
+
 function isDeveloper(interaction) {
   const cfg = require('../../../config/config.json');
   const ownerId = (cfg && cfg.owner) ? String(cfg.owner) : null;
@@ -170,44 +183,43 @@ function buildEvolveView({
         container.addSectionComponents(section);
       }
 
-      if (!expired) {
-        const typeValues = [...new Set(xenos.map(x => String(x.role || x.stage || '').toLowerCase()).filter(Boolean))].sort();
-        const MAX_TYPE_OPTIONS = 5; // keep payload under Discord V2 total component limits
-        const slicedTypes = typeValues.slice(0, MAX_TYPE_OPTIONS);
-        if (safeFilter !== 'all' && safeFilter && !slicedTypes.includes(safeFilter) && typeValues.includes(safeFilter)) {
-          slicedTypes[MAX_TYPE_OPTIONS - 1] = safeFilter;
-        }
-
-        const options = [{ label: 'All Types', value: 'all', default: safeFilter === 'all' }].concat(
-          slicedTypes.map(v => ({
-            label: v,
-            value: v,
-            default: v === safeFilter
-          }))
-        );
-
-        container.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId('evolve-list-type-select')
-              .setPlaceholder('Filter by xenomorph type')
-              .addOptions(...options)
-          )
-        );
-
-        container.addActionRowComponents(
-          buildPaginationRow({
-            prefix: 'evolve-list',
-            pageIdx: pagination.safePageIdx,
-            totalPages: pagination.totalPages,
-            totalItems: pagination.totalItems,
-            prevLabel: 'Prev',
-            nextLabel: 'Next',
-            totalLabel: 'Total',
-            showPageInfo: true
-          })
-        );
+      const typeValues = [...new Set(xenos.map(x => String(x.role || x.stage || '').toLowerCase()).filter(Boolean))].sort();
+      const MAX_TYPE_OPTIONS = 5; // keep payload under Discord V2 total component limits
+      const slicedTypes = typeValues.slice(0, MAX_TYPE_OPTIONS);
+      if (safeFilter !== 'all' && safeFilter && !slicedTypes.includes(safeFilter) && typeValues.includes(safeFilter)) {
+        slicedTypes[MAX_TYPE_OPTIONS - 1] = safeFilter;
       }
+
+      const options = [{ label: 'All Types', value: 'all', default: safeFilter === 'all' }].concat(
+        slicedTypes.map(v => ({
+          label: v,
+          value: v,
+          default: v === safeFilter
+        }))
+      );
+
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('evolve-list-type-select')
+            .setPlaceholder('Filter by xenomorph type')
+            .setDisabled(!!expired)
+            .addOptions(...options)
+        )
+      );
+
+      const listPaginationRow = buildPaginationRow({
+        prefix: 'evolve-list',
+        pageIdx: pagination.safePageIdx,
+        totalPages: pagination.totalPages,
+        totalItems: pagination.totalItems,
+        prevLabel: 'Prev',
+        nextLabel: 'Next',
+        totalLabel: 'Total',
+        showPageInfo: true
+      });
+      if (expired) disableRowComponents(listPaginationRow);
+      container.addActionRowComponents(listPaginationRow);
     }
   } else if (screen === 'info') {
     if (!xenos.length) {
@@ -215,20 +227,19 @@ function buildEvolveView({
     } else {
       const selected = xenos.find(x => String(x.id) === String(selectedXenoId)) || xenos[0];
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(renderInfoText(selected, require('../../../config/evolutions.json'))));
-      if (!expired) {
-        container.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId('evolve-info-select')
-              .setPlaceholder('Choose a xenomorph')
-              .addOptions(...xenos.slice(0, 25).map(x => ({
-                label: `#${x.id} ${x.role || x.stage}`.slice(0, 100),
-                value: String(x.id),
-                default: String(x.id) === String(selected.id)
-              })))
-          )
-        );
-      }
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('evolve-info-select')
+            .setPlaceholder('Choose a xenomorph')
+            .setDisabled(!!expired)
+            .addOptions(...xenos.slice(0, 25).map(x => ({
+              label: `#${x.id} ${x.role || x.stage}`.slice(0, 100),
+              value: String(x.id),
+              default: String(x.id) === String(selected.id)
+            })))
+        )
+      );
     }
   } else if (screen === 'cancel') {
     if (!jobs.length) {
@@ -242,31 +253,30 @@ function buildEvolveView({
       const pageJobs = pagination.pageItems;
       const lines = pageJobs.map(j => `**#${j.id}** xeno:${j.xeno_id} → ${j.target_role}`);
       container.addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join('\n')));
-      if (!expired) {
-        container.addActionRowComponents(
-          buildPaginationRow({
-            prefix: 'evolve-cancel',
-            pageIdx: pagination.safePageIdx,
-            totalPages: pagination.totalPages,
-            totalItems: pagination.totalItems,
-            prevLabel: 'Prev',
-            nextLabel: 'Next',
-            totalLabel: 'Total',
-            showPageInfo: true
-          })
-        );
-        container.addActionRowComponents(
-          new ActionRowBuilder().addComponents(
-            new StringSelectMenuBuilder()
-              .setCustomId('evolve-cancel-select')
-              .setPlaceholder('Choose a queued job to cancel')
-              .addOptions(...pageJobs.map(j => ({
-                label: `#${j.id} x:${j.xeno_id} -> ${j.target_role}`.slice(0, 100),
-                value: String(j.id)
-              })))
-          )
-        );
-      }
+      const cancelPaginationRow = buildPaginationRow({
+        prefix: 'evolve-cancel',
+        pageIdx: pagination.safePageIdx,
+        totalPages: pagination.totalPages,
+        totalItems: pagination.totalItems,
+        prevLabel: 'Prev',
+        nextLabel: 'Next',
+        totalLabel: 'Total',
+        showPageInfo: true
+      });
+      if (expired) disableRowComponents(cancelPaginationRow);
+      container.addActionRowComponents(cancelPaginationRow);
+      container.addActionRowComponents(
+        new ActionRowBuilder().addComponents(
+          new StringSelectMenuBuilder()
+            .setCustomId('evolve-cancel-select')
+            .setPlaceholder('Choose a queued job to cancel')
+            .setDisabled(!!expired)
+            .addOptions(...pageJobs.map(j => ({
+              label: `#${j.id} x:${j.xeno_id} -> ${j.target_role}`.slice(0, 100),
+              value: String(j.id)
+            })))
+        )
+      );
     }
   } else if (screen === 'start-help') {
     container.addTextDisplayComponents(
@@ -278,14 +288,10 @@ function buildEvolveView({
     );
   }
 
-  if (!expired) {
-    container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-    );
-    container.addActionRowComponents(buildNavigationRow({ screen, disabled: false }));
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('_Evolve view expired_'));
-  }
+  container.addSeparatorComponents(
+    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+  );
+  container.addActionRowComponents(buildNavigationRow({ screen, disabled: !!expired }));
 
   return [container];
 }
