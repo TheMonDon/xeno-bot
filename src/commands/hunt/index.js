@@ -415,6 +415,7 @@ async function performHunt(interaction, client) {
 module.exports = {
   name: cmd.name,
   description: cmd.description,
+  performHunt,
   data: new ChatInputCommandBuilder()
     .setName(cmd.name)
     .setDescription(cmd.description),
