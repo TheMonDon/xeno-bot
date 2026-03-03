@@ -707,19 +707,34 @@ module.exports = {
               return;
             }
 
+            // Check hive capacity
+            const currentMembers = (Array.isArray(xenos) ? xenos : []).filter(x => Number(x.hive_id) === Number(viewHive.id));
+            const capacity = Number(viewHive.capacity || 0);
+            const remainingCapacity = Math.max(0, capacity - currentMembers.length);
+            const xenosToAdd = finalIds.slice(0, remainingCapacity);
+
+            if (remainingCapacity <= 0) {
+              await i.reply({ content: `❌ Your hive is at capacity (${currentMembers.length}/${capacity}).`, ephemeral: true });
+              return;
+            }
+
+            if (xenosToAdd.length < finalIds.length) {
+              await i.reply({ content: `⚠️ Only ${remainingCapacity} slot(s) available. Adding first ${xenosToAdd.length} xenomorph(s).`, ephemeral: true });
+            }
+
             const updatedCount = await db.knex('xenomorphs')
               .where({ owner_id: String(userId) })
-              .whereIn('id', finalIds)
+              .whereIn('id', xenosToAdd)
               .update({ hive_id: viewHive.id, updated_at: db.knex.fn.now() })
               .catch(async () => {
                 return db.knex('xenomorphs')
                   .where({ owner_id: String(userId) })
-                  .whereIn('id', finalIds)
+                  .whereIn('id', xenosToAdd)
                   .update({ hive_id: viewHive.id });
               });
 
             xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => xenos);
-            await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Added ${formatNumber(updatedCount || finalIds.length)} xenomorph(s) to this hive.`, client: interaction.client }) });
+            await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `✅ Added ${formatNumber(updatedCount || xenosToAdd.length)} xenomorph(s) to this hive.`, client: interaction.client }) });
             return;
           }
 
