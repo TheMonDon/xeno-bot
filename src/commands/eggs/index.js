@@ -326,6 +326,91 @@ module.exports = {
     }
     const guildId = interaction.guildId;
     const discordId = interaction.user.id;
+    const attachEggsResultCollector = async () => {
+      let msg = null;
+      try { msg = await interaction.fetchReply(); } catch (_) {}
+      if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
+
+      let rows = [];
+      let currentPage = 0;
+      const logger = require('../../utils/logger').get('command:eggs');
+      const collector = msg.createMessageComponentCollector({ time: 300_000 });
+
+      collector.on('collect', async i => {
+        try {
+          if (i.user.id !== discordId) {
+            try { await i.reply({ content: 'Only the command user can interact with this view.', ephemeral: true }); } catch (_) {}
+            return;
+          }
+
+          if (i.customId === 'eggs-view-list' || i.customId === 'eggs-back-to-list') {
+            rows = await hatchManager.listHatches(discordId, guildId);
+            currentPage = 0;
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: 0, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            return;
+          }
+
+          if (i.customId === 'eggs-prev-page') {
+            currentPage = Math.max(0, currentPage - 1);
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            return;
+          }
+          if (i.customId === 'eggs-next-page') {
+            const totalPages = Math.max(1, Math.ceil(rows.length / HATCHES_PER_PAGE));
+            currentPage = Math.min(totalPages - 1, currentPage + 1);
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            return;
+          }
+
+          if (i.customId.startsWith('eggs-collect-one:')) {
+            const hatchId = Number(i.customId.split(':')[1]);
+            await hatchManager.collectHatch(discordId, guildId, hatchId);
+            const hatchIndex = rows.findIndex(r => r.id === hatchId);
+            if (hatchIndex !== -1) rows[hatchIndex].collected = true;
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            return;
+          }
+
+          if (i.customId === 'eggs-view-stats') {
+            await i.update({ components: buildEggsStatsPage({ hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            return;
+          }
+
+          if (i.customId === 'eggs-hatch-egg') {
+            const u = await userModel.getUserByDiscordId(discordId);
+            const userEggs = u?.data?.guilds?.[guildId]?.eggs || {};
+            await i.update({ components: buildEggsView({ screen: 'hatch', userEggs, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            return;
+          }
+
+          if (i.customId === 'eggs-select-hatch') {
+            const selectedEggId = i.values[0];
+            const eggConfig = eggTypes.find(e => e.id === selectedEggId);
+            if (!eggConfig) {
+              await i.update({ components: buildEggsView({ screen: 'result', content: 'Unknown egg type.' }), flags: MessageFlags.IsComponentsV2 });
+              return;
+            }
+            try {
+              const u = await userModel.getUserByDiscordId(discordId);
+              const curQty = Number((u?.data?.guilds?.[guildId]?.eggs?.[selectedEggId]) || 0);
+              if (curQty < 1) {
+                await i.update({ components: buildEggsView({ screen: 'result', content: `You don't have any ${eggConfig.name}.` }), flags: MessageFlags.IsComponentsV2 });
+                return;
+              }
+              const hatchSeconds = Number(eggConfig.hatch || 60);
+              const h = await hatchManager.startHatch(discordId, guildId, selectedEggId, hatchSeconds * 1000);
+              rows = await hatchManager.listHatches(discordId, guildId);
+              await i.update({ components: buildEggsView({ screen: 'result', content: `Started hatching ${eggConfig.name}! Hatch ID: ${h.id}. Will finish in ${hatchSeconds}s.` }), flags: MessageFlags.IsComponentsV2 });
+            } catch (e) {
+              await i.update({ components: buildEggsView({ screen: 'result', content: `Failed to start hatch: ${e.message}` }), flags: MessageFlags.IsComponentsV2 });
+            }
+            return;
+          }
+        } catch (e) {
+          logger.warn('Error in eggs result collector', { error: e && (e.stack || e) });
+        }
+      });
+    };
     try {
         if (sub === 'list') {
             await interaction.deferReply({ ephemeral: true });
@@ -451,6 +536,61 @@ module.exports = {
             });
             return;
           }
+
+      if (sub === 'info') {
+        await interaction.deferReply({ ephemeral: true });
+        const eggId = interaction.options.getString('egg');
+        const safeReply = require('../../utils/safeReply');
+        const eggConfig = eggTypes.find(e => e.id === eggId);
+        if (!eggConfig) {
+          await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: 'Unknown egg type.' }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' });
+          return;
+        }
+
+        const user = await userModel.getUserByDiscordId(discordId);
+        const qty = Number((user?.data?.guilds?.[guildId]?.eggs?.[eggId]) || 0);
+        const rarityBadge = getRarityBadge(eggConfig.rarity);
+        const hatchSeconds = Number(eggConfig.hatch || 0);
+        const sellValue = Number(eggConfig.sell != null ? eggConfig.sell : Math.floor(Number(eggConfig.price || 0) / 2));
+
+        const lines = [
+          `**${eggConfig.emoji || ''} ${eggConfig.name || eggId}** ${rarityBadge}`,
+          `Type: \`${eggConfig.id}\``,
+          `Owned: **${qty}**`,
+          `Hatch Time: **${hatchSeconds}s**`,
+          `Next Stage: **${eggConfig.next_stage || 'facehugger'}**`,
+          `Sell Value: **${formatNumber(sellValue)}** royal jelly each`
+        ];
+
+        await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: lines.join('\n') }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' });
+        await attachEggsResultCollector();
+        return;
+      }
+
+      if (sub === 'destroy') {
+        await interaction.deferReply({ ephemeral: true });
+        const eggId = interaction.options.getString('egg');
+        const amount = interaction.options.getInteger('amount') || 1;
+        const safeReply = require('../../utils/safeReply');
+        const eggConfig = eggTypes.find(e => e.id === eggId);
+        if (!eggConfig) {
+          await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: 'Unknown egg type.' }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' });
+          return;
+        }
+        if (amount < 1) {
+          await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: 'Amount must be at least 1.' }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' });
+          return;
+        }
+
+        try {
+          const remaining = await userModel.removeEggsForGuild(discordId, guildId, eggId, amount);
+          await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: `Destroyed ${amount} x ${eggConfig.name}. Remaining: ${remaining}.` }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' });
+          await attachEggsResultCollector();
+        } catch (e) {
+          await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: `Failed to destroy eggs: ${e.message}` }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' });
+        }
+        return;
+      }
 
       if (sub === 'sell') {
         await interaction.deferReply({ ephemeral: true });
@@ -690,6 +830,10 @@ module.exports = {
         }
         return;
       }
+
+      const safeReply = require('../../utils/safeReply');
+      await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: `Unknown subcommand: ${sub || 'none'}.` }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' });
+      return;
     } catch (err) {
       const logger = require('../../utils/logger').get('command:eggs');
       logger.error('Unhandled error in eggs command', { error: err && (err.stack || err) });
