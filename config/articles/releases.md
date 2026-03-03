@@ -439,5 +439,29 @@ This is a bug-fix-only patch release focused on command stability, pagination co
 - Version bumped to `1.9.1`.
 - Patch release contains no intentional breaking changes.
 
+## v1.9.2 — Tutorial command and article reminder fixes
+
+Date: 2026-03-03
+
+This patch release focuses on onboarding UX and news reminder reliability.
+
+### Features
+
+- Added a new interactive `/tutorial` command with:
+  - Category selector menu
+  - Multi-page navigation (Previous/Next)
+  - Dedicated sections for server setup, basics, hives, evolutions/hatching, hunts, and extra tips
+
+### Bug Fixes
+
+- Fixed `/tutorial` payload validation failure by correcting select-menu emoji option format (Discord API expected emoji object shape).
+- Fixed news reminder visibility across deferred/component replies by applying reminder injection before reply/edit paths in `safeReply`.
+- Fixed article-change detection for edited existing articles (e.g. `releases.md`) so reminders trigger when latest content is updated, not only when new files are added.
+
+### Internal
+
+- Version bumped to `1.9.2`.
+- Patch release contains no intentional breaking changes.
+
 
 
