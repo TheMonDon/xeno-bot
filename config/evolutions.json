@@ -5,7 +5,7 @@
       "description": "Standard human-host evolution pathway"
     },
     "dog": {
-      "stages": ["facehugger", "drone", "sentry", "crusher", "queen"],
+      "stages": ["facehugger", "runner", "sentry", "crusher", "queen"],
       "description": "Canine-host pathway with different mid roles"
     },
     "king": {
@@ -64,8 +64,8 @@
       "praetorian": { "to": "queen", "cost_jelly": 50 }
     },
     "dog": {
-      "facehugger": { "to": "drone", "cost_jelly": 0, "requires_host_types": ["dog", "ox", "bat", "snake"] },
-      "drone": { "to": "sentry", "cost_jelly": 12 },
+      "facehugger": { "to": "runner", "cost_jelly": 0, "requires_host_types": ["dog", "ox", "bat", "snake"] },
+      "runner": { "to": "sentry", "cost_jelly": 12 },
       "sentry": { "to": "crusher", "cost_jelly": 30 },
       "crusher": { "to": "queen", "cost_jelly": 60 }
     },
@@ -93,6 +93,7 @@
     "warrior": { "display": "Warrior", "emoji": "warrior" },
     "praetorian": { "display": "Praetorian", "emoji": "praetorian" },
     "queen": { "display": "Queen", "emoji": "queen" },
+    "runner": { "display": "Runner", "emoji": "runner" },
     "sentry": { "display": "Sentry", "emoji": "sentry" },
     "crusher": { "display": "Crusher", "emoji": "crusher" },
     "king_facehugger": { "display": "King Facehugger", "emoji": "king_facehugger" },
