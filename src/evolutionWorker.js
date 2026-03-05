@@ -1,5 +1,31 @@
 const db = require('./db');
 const logger = require('./utils/logger').get('evolutionWorker');
+const { ContainerBuilder, TextDisplayBuilder, MessageFlags } = require('discord.js');
+const evolutionsCfg = require('../config/evolutions.json');
+const emojisCfg = require('../config/emojis.json');
+
+function getRoleDisplay(roleId) {
+  const key = String(roleId || '').toLowerCase();
+  const roleInfo = evolutionsCfg?.roles?.[key] || {};
+  const display = roleInfo.display || key || 'Unknown';
+  const emojiKey = roleInfo.emoji;
+  const emoji = emojiKey && emojisCfg[emojiKey] ? `${emojisCfg[emojiKey]} ` : '';
+  return `${emoji}${display}`.trim();
+}
+
+function buildEvolutionCompleteV2Dm(job, fromRole, toRole) {
+  const container = new ContainerBuilder();
+  container.addTextDisplayComponents(
+    new TextDisplayBuilder().setContent(`## Evolution Complete`),
+    new TextDisplayBuilder().setContent(`Your evolution job [${job.id}] completed`),
+    new TextDisplayBuilder().setContent(`${getRoleDisplay(fromRole)} [${job.xeno_id}] -> ${getRoleDisplay(toRole)} [${job.xeno_id}]`)
+  );
+
+  return {
+    components: [container],
+    flags: MessageFlags.IsComponentsV2
+  };
+}
 
 async function processDueJobs(client) {
   const now = Date.now();
@@ -11,13 +37,21 @@ async function processDueJobs(client) {
       // For now, simple deterministic success (could be chance-based)
       const success = true;
       if (success) {
+        const currentXeno = await db.knex('xenomorphs').where({ id: job.xeno_id }).first();
+        const fromRole = currentXeno?.role || currentXeno?.stage || 'unknown';
         // update xenomorph role
         await db.knex('xenomorphs').where({ id: job.xeno_id }).update({ role: job.target_role, updated_at: db.knex.fn.now() });
         await db.knex('evolution_queue').where({ id: job.id }).update({ status: 'completed', result: 'success', updated_at: db.knex.fn.now() });
         // DM the user
         try {
           const user = await client.users.fetch(String(job.user_id));
-          if (user) await user.send(`Your evolution job #${job.id} completed: xenomorph #${job.xeno_id} is now ${job.target_role}.`);
+          if (user) {
+            try {
+              await user.send(buildEvolutionCompleteV2Dm(job, fromRole, job.target_role));
+            } catch (v2Err) {
+              await user.send(`Your evolution job [${job.id}] completed\n${getRoleDisplay(fromRole)} [${job.xeno_id}] -> ${getRoleDisplay(job.target_role)} [${job.xeno_id}]`);
+            }
+          }
         } catch (dmErr) {
           logger.warn('Failed to DM user about evolution completion', { jobId: job.id, error: dmErr && (dmErr.stack || dmErr) });
         }

@@ -4,6 +4,17 @@ View the full changelog of xeno-bot's development progress, including all featur
 
 ----
 
+## v1.9.11 — Evolution completion DM V2 redesign
+
+Date: 2026-03-05
+
+- **Improved:** Evolution completion direct messages now use Components V2 for cleaner presentation.
+- **New format:**
+  - `Your evolution job [jobId] completed`
+  - `<emoji> <from role> [xenoId] -> <emoji> <to role> [xenoId]`
+- **Details:** Role display names and emojis are now resolved from evolution role config for consistent naming across pathways.
+- **Reliability:** Added plain-text DM fallback if V2 component sending fails.
+
 ## v1.9.10 — Gift xenomorph autocomplete + evolution status fix
 
 Date: 2026-03-05
