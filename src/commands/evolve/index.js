@@ -234,7 +234,7 @@ function buildEvolveView({
             .setPlaceholder('Choose a xenomorph')
             .setDisabled(!!expired)
             .addOptions(...xenos.slice(0, 25).map(x => ({
-              label: `#${x.id} ${x.role || x.stage}`.slice(0, 100),
+              label: `${x.role || x.stage} [${x.id}]`.slice(0, 100),
               value: String(x.id),
               default: String(x.id) === String(selected.id)
             })))
@@ -272,7 +272,7 @@ function buildEvolveView({
             .setPlaceholder('Choose a queued job to cancel')
             .setDisabled(!!expired)
             .addOptions(...pageJobs.map(j => ({
-              label: `#${j.id} x:${j.xeno_id} -> ${j.target_role}`.slice(0, 100),
+              label: `Job [${j.id}] • Xeno [${j.xeno_id}] -> ${j.target_role}`.slice(0, 100),
               value: String(j.id)
             })))
         )
@@ -573,8 +573,8 @@ module.exports = {
       if (sub === 'start' && (focusedName === 'xenomorph' || (!focusedName && isNumeric))) {
         try {
           const list = await xenoModel.listByOwner(String(userId));
-          if (!list || list.length === 0) return autocomplete(interaction, [], { map: it => ({ name: `${it.id} ${it.role || it.stage}`, value: it.id }), max: 25 });
-          const items = list.slice(0, 25).map(x => ({ id: String(x.id), name: `#${x.id} ${x.role || x.stage} (${x.pathway || ''})` }));
+          if (!list || list.length === 0) return autocomplete(interaction, [], { map: it => ({ name: `${it.role || it.stage} [${it.id}]`, value: it.id }), max: 25 });
+          const items = list.slice(0, 25).map(x => ({ id: String(x.id), name: `${x.role || x.stage} [${x.id}] • Pathway: ${x.pathway || 'standard'}` }));
           return autocomplete(interaction, items, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
         } catch (e) { try { await interaction.respond([]); } catch (_) {} return; }
       }
@@ -608,7 +608,7 @@ module.exports = {
       if (sub === 'start' && focusedName === 'host') {
         try {
           const rows = await hostModel.listHostsByOwner(String(userId));
-          const items = rows.slice(0, 25).map(r => ({ id: String(r.id), name: `#${r.id} ${getHostDisplay(r.host_type, hostsCfg.hosts || {}, emojisCfg)}` }));
+          const items = rows.slice(0, 25).map(r => ({ id: String(r.id), name: `${getHostDisplay(r.host_type, hostsCfg.hosts || {}, emojisCfg)} [${r.id}]` }));
           return autocomplete(interaction, items, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
         } catch (e) { try { await interaction.respond([]); } catch (_) {} return; }
       }
@@ -618,7 +618,7 @@ module.exports = {
         try {
           const rows = await db.knex('evolution_queue').where({ user_id: String(userId), status: 'queued' }).orderBy('id', 'asc').limit(25);
           if (!rows || rows.length === 0) return autocomplete(interaction, [], { map: it => ({ name: it.id, value: it.id }), max: 25 });
-          const items = rows.map(r => ({ id: String(r.id), name: `#${r.id} xeno:${r.xeno_id} -> ${r.target_role}` }));
+          const items = rows.map(r => ({ id: String(r.id), name: `Job [${r.id}] • Xeno [${r.xeno_id}] -> ${r.target_role}` }));
           return autocomplete(interaction, items, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
         } catch (e) { try { await interaction.respond([]); } catch (_) {} return; }
       }

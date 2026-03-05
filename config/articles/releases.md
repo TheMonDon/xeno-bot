@@ -4,6 +4,15 @@ View the full changelog of xeno-bot's development progress, including all featur
 
 ----
 
+## v1.9.12 — Command option label consistency
+
+Date: 2026-03-05
+
+- **Improved:** Standardized select-menu and autocomplete entity labels to a consistent `Name [ID]` pattern across key command flows.
+- **Updated commands:** `gift`, `hive`, `evolve`, and `devgive` option labels/autocomplete entries.
+- **Xeno context:** Added pathway context where relevant (for example, xeno options now include pathway details when useful).
+- **UX impact:** Makes it easier to match inventory entries with command choices and reduces ambiguity when selecting entities.
+
 ## v1.9.11 — Evolution completion DM V2 redesign
 
 Date: 2026-03-05

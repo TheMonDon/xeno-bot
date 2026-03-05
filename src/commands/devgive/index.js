@@ -118,7 +118,7 @@ module.exports = {
         const items = eggTypes
           .filter(e => !q || String(e.id).toLowerCase().includes(q) || String(e.name || '').toLowerCase().includes(q))
           .slice(0, 25)
-          .map(e => ({ name: `${e.name} (${e.id})`, value: e.id }));
+          .map(e => ({ name: `${e.name} [${e.id}]`, value: e.id }));
         return interaction.respond(items);
       }
       
@@ -129,7 +129,7 @@ module.exports = {
           .filter(p => !q || p.toLowerCase().includes(q))
           .map(p => {
             const desc = evolutions.pathways[p]?.description || '';
-            return { name: `${p} - ${desc}`, value: p };
+            return { name: desc ? `${p} [${p}] - ${desc}` : `${p} [${p}]`, value: p };
           })
           .slice(0, 25);
         return interaction.respond(items);
@@ -165,7 +165,7 @@ module.exports = {
             return !q || hostKey.toLowerCase().includes(q) || display.includes(q);
           })
           .map(([hostKey, hostInfo]) => ({
-            name: `${hostInfo?.display || hostKey} (${hostKey})`,
+            name: `${hostInfo?.display || hostKey} [${hostKey}]`,
             value: hostKey
           }))
           .slice(0, 25);

@@ -45,7 +45,7 @@ function isEvolvedXeno(x) {
 
 function toXenoOption(x) {
   const role = x?.role || x?.stage || 'xeno';
-  const label = `#${x.id} ${String(role)}`.slice(0, 100);
+  const label = `${String(role)} [${x.id}]`.slice(0, 100);
   const descriptor = [x?.pathway ? `Path: ${x.pathway}` : null, `Lv ${Number(x?.level || 1)}`].filter(Boolean).join(' • ');
   const description = descriptor.slice(0, 100);
   return { label, value: String(x.id), description };

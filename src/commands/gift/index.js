@@ -134,7 +134,7 @@ module.exports = {
           const hostName = hostType?.display || h.host_type;
           return {
             id: String(h.id),
-            name: `${emoji} ${hostName} (ID: ${h.id})`.substring(0, 100)
+            name: `${emoji} ${hostName} [${h.id}]`.substring(0, 100)
           };
         });
         
@@ -174,7 +174,7 @@ module.exports = {
             const pathway = x.pathway || 'standard';
             return {
               id: String(x.id),
-              name: `${emoji}${display} [${x.id}] - ${pathway}`.substring(0, 100)
+              name: `${emoji}${display} [${x.id}] • Pathway: ${pathway}`.substring(0, 100)
             };
           });
         
