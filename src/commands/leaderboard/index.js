@@ -14,6 +14,8 @@ const cmd = getCommandConfig('leaderboard') || {
   description: 'View the top collectors and catchers.'
 };
 
+const leaderboardBlacklist = require('../../models/leaderboardBlacklist');
+
 function buildLeaderboardV2Components({
   title,
   description,
@@ -206,8 +208,17 @@ module.exports = {
         }
       }
 
-      // Build sortable entries
-      const entries = Object.entries(guildStats).map(([gid, info]) => ({ gid, info }));
+      // Build sortable entries and apply leaderboard blacklist
+      let entries = Object.entries(guildStats).map(([gid, info]) => ({ gid, info }));
+      try {
+        const blacklisted = await leaderboardBlacklist.getAll();
+        if (Array.isArray(blacklisted) && blacklisted.length > 0) {
+          const set = new Set(blacklisted.map(String));
+          entries = entries.filter(e => !set.has(String(e.gid)));
+        }
+      } catch (e) {
+        // ignore blacklist failures and proceed
+      }
 
       // Sorting by requested option
       if (sortOpt === 'eggs') {

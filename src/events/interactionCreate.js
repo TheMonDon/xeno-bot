@@ -4,10 +4,56 @@ const fallbackLogger = require('../utils/fallbackLogger');
 const { PermissionsBitField } = require('discord.js');
 const config = require('../../config/config.json');
 
+function resolveOwnerId() {
+  try {
+    if (process.env.BOT_CONFIG_PATH) {
+      try { const bc = require(process.env.BOT_CONFIG_PATH); if (bc && bc.owner) return String(bc.owner); } catch (e) {}
+    }
+  } catch (e) {}
+  return process.env.OWNER || process.env.BOT_OWNER || process.env.OWNER_ID || null;
+}
+
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
     try {
+      // Handle modal submissions for devmenu blacklist/unblacklist
+      if (typeof interaction.isModalSubmit === 'function' && interaction.isModalSubmit()) {
+        if (interaction.customId === 'devmenu-blacklist-modal' || interaction.customId === 'devmenu-unblacklist-modal') {
+          const ownerId = resolveOwnerId();
+          if (!ownerId || String(interaction.user.id) !== String(ownerId)) {
+            await safeReply(interaction, { content: 'This action is owner-only.', ephemeral: true }, { loggerName: 'interactionCreate' });
+            return;
+          }
+          try {
+            const guildInput = String(interaction.fields.getTextInputValue('guild_id') || '').trim();
+            let guildId = guildInput;
+            if (!guildId) {
+              await safeReply(interaction, { content: 'No guild ID provided.', ephemeral: true }, { loggerName: 'interactionCreate' });
+              return;
+            }
+            if (guildId.toLowerCase() === 'current') guildId = interaction.guildId || null;
+            if (!guildId) {
+              await safeReply(interaction, { content: 'No current guild context available; please provide a guild ID.', ephemeral: true }, { loggerName: 'interactionCreate' });
+              return;
+            }
+            const lbModel = require('../models/leaderboardBlacklist');
+            if (interaction.customId === 'devmenu-blacklist-modal') {
+              const ok = await lbModel.add(guildId);
+              await safeReply(interaction, { content: ok ? `✅ Guild ${guildId} added to global leaderboard blacklist.` : `❌ Failed to blacklist guild ${guildId}.`, ephemeral: true }, { loggerName: 'interactionCreate' });
+              return;
+            } else {
+              const ok = await lbModel.remove(guildId);
+              await safeReply(interaction, { content: ok ? `✅ Guild ${guildId} removed from global leaderboard blacklist.` : `❌ Failed to remove guild ${guildId} from blacklist.`, ephemeral: true }, { loggerName: 'interactionCreate' });
+              return;
+            }
+          } catch (e) {
+            logger.error('Failed processing devmenu modal submit', { error: e && (e.stack || e) });
+            try { await safeReply(interaction, { content: `❌ Error: ${e && e.message ? e.message : 'Unknown error'}`, ephemeral: true }, { loggerName: 'interactionCreate' }); } catch (_) {}
+            return;
+          }
+        }
+      }
       // Handle bug report resolve button
       if (typeof interaction.isButton === 'function' && interaction.isButton() && interaction.customId === 'bugreport-mark-resolved') {
         const forumChannelId = String(config?.bugReports?.forumChannelId || '').trim();

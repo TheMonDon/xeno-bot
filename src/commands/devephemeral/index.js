@@ -47,32 +47,6 @@ function isDeveloper(user, member) {
 
 module.exports = {
   name: 'devephemeral',
-  description: 'Developer-only: send a plain Components v2 ephemeral test message (text command)',
-  developerOnly: true,
-  
-  async executeMessage(message) {
-    if (!isDeveloper(message.author, message.member)) {
-      try {
-        await message.reply({ content: 'This command is owner-only.', allowedMentions: { repliedUser: false } });
-      } catch (_) {}
-      return;
-    }
-
-    const container = new ContainerBuilder()
-      .addTextDisplayComponents(
-        new TextDisplayBuilder().setContent('✅ Components v2 ephemeral test (text command)')
-      );
-
-    try {
-      await message.reply({
-        components: [container],
-        flags: MessageFlags.IsComponentsV2,
-        allowedMentions: { repliedUser: false }
-      });
-    } catch (err) {
-      try {
-        await message.reply({ content: `Failed: ${err && err.message}`, allowedMentions: { repliedUser: false } });
-      } catch (_) {}
-    }
-  }
+  description: 'Developer-only: Components v2 ephemeral test — text mode removed; use /devmenu',
+  developerOnly: true
 };

@@ -284,6 +284,24 @@ async function migrate() {
     throw err;
   }
 
+  // leaderboard_blacklists table: guilds excluded from global leaderboard
+  try {
+    const hasBlacklist = await knex.schema.hasTable('leaderboard_blacklists');
+    if (!hasBlacklist) {
+      await knex.schema.createTable('leaderboard_blacklists', (table) => {
+        table.increments('id').primary();
+        table.string('guild_id').notNullable().unique();
+        table.timestamp('created_at').defaultTo(knex.fn.now());
+      });
+      logger.info('Created `leaderboard_blacklists` table');
+    } else {
+      logger.info('`leaderboard_blacklists` table already exists');
+    }
+  } catch (err) {
+    logger.error('Failed ensuring leaderboard_blacklists table', { error: err.stack || err });
+    throw err;
+  }
+
   // hatches table: persist egg hatching jobs so they survive restarts
   try {
     const hasHatches = await knex.schema.hasTable('hatches');
