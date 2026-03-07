@@ -70,6 +70,16 @@ Date: 2026-03-07
 - **Notes:** Rows where a guild could not be derived remain `NULL` and will be excluded by guild-scoped queries unless `includeUnassigned` is used. Run migrations on any additional DB instances (staging/replica) as needed.
 
 
+## v1.9.20 — UX: evolve list formatting
+
+Date: 2026-03-07
+
+- **Improved:** The `/evolve list` view now formats entries to match the rest of the bot UI: `<emoji> <Role Display> [ID]` with the pathway shown on a second line. This makes xenomorph entries consistent with other lists (hosts, eggs) and improves scanability.
+- **Why:** Previously the list used a compact `#id role` line that lacked the role emoji and consistent bracketed ID. The new format uses configured role emojis and display names to match completion/cancel messages and other UX patterns.
+- **Files:** `src/commands/evolve/index.js` updated to use `getRoleDisplay()` for list entries.
+
+
+
 
 
 

@@ -23,6 +23,7 @@ const { getPaginationState, buildPaginationRow } = require('../../utils/paginati
 const safeReply = require('../../utils/safeReply');
 const hostsCfg = require('../../../config/hosts.json');
 const emojisCfg = require('../../../config/emojis.json');
+const evolutionsCfg = require('../../../config/evolutions.json');
 const cmd = { name: 'evolve', description: 'Evolve your xenomorphs' };
 const EVOLVE_LIST_PAGE_SIZE = 5;
 const EVOLVE_CANCEL_PAGE_SIZE = 10;
@@ -47,6 +48,15 @@ function getHostDisplay(hostType, cfgHosts, emojis) {
   const emojiKey = hostInfo.emoji;
   const emoji = emojiKey && emojis[emojiKey] ? emojis[emojiKey] : '';
   return emoji ? `${emoji} ${display}` : display;
+}
+
+function getRoleDisplay(roleId) {
+  const key = String(roleId || '').toLowerCase();
+  const roleInfo = (evolutionsCfg && evolutionsCfg.roles && evolutionsCfg.roles[key]) ? evolutionsCfg.roles[key] : {};
+  const display = roleInfo.display || roleId || 'Unknown';
+  const emojiKey = roleInfo.emoji;
+  const emoji = emojiKey && emojisCfg[emojiKey] ? `${emojisCfg[emojiKey]} ` : '';
+  return `${emoji}${display}`.trim();
 }
 
 async function hydrateLegacyFacehuggers(userId, guildId) {
@@ -185,6 +195,8 @@ function buildEvolveView({
       });
 
       for (const x of pagination.pageItems) {
+        const primary = getRoleDisplay(x.role || x.stage || '');
+        const pathway = x.pathway || 'standard';
         const section = new SectionBuilder()
           .setSecondaryButtonAccessory((button) =>
             button
@@ -192,7 +204,7 @@ function buildEvolveView({
               .setCustomId(`evolve-list-info:${x.id}`)
           )
           .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(`**#${x.id} ${x.role || x.stage}**\nPath: ${x.pathway || 'standard'}`)
+            new TextDisplayBuilder().setContent(`${primary} [${x.id}]\nPath: ${pathway}`)
           );
         container.addSectionComponents(section);
       }
@@ -265,8 +277,26 @@ function buildEvolveView({
         pageSize: EVOLVE_CANCEL_PAGE_SIZE
       });
       const pageJobs = pagination.pageItems;
-      const lines = pageJobs.map(j => `**#${j.id}** xeno:${j.xeno_id} → ${j.target_role}`);
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent(lines.join('\n')));
+
+      // Render each job as a section with a Cancel button accessory (like the Info button on list)
+      for (const j of pageJobs) {
+        const fromRole = j.xeno_role || j.xeno_stage || '';
+        const fromDisplay = getRoleDisplay(fromRole);
+        const toDisplay = getRoleDisplay(j.target_role);
+        const line = `${fromDisplay} [${j.xeno_id}] -> ${toDisplay} [${j.xeno_id}]`;
+
+        const section = new SectionBuilder()
+          .setSecondaryButtonAccessory((button) =>
+            button
+              .setLabel('Cancel')
+              .setCustomId(`evolve-cancel-job:${j.id}`)
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(line)
+          );
+        container.addSectionComponents(section);
+      }
+
       const cancelPaginationRow = buildPaginationRow({
         prefix: 'evolve-cancel',
         pageIdx: pagination.safePageIdx,
@@ -279,18 +309,6 @@ function buildEvolveView({
       });
       if (expired) disableRowComponents(cancelPaginationRow);
       container.addActionRowComponents(cancelPaginationRow);
-      container.addActionRowComponents(
-        new ActionRowBuilder().addComponents(
-          new StringSelectMenuBuilder()
-            .setCustomId('evolve-cancel-select')
-            .setPlaceholder('Choose a queued job to cancel')
-            .setDisabled(!!expired)
-            .addOptions(...pageJobs.map(j => ({
-              label: `Job [${j.id}] • Xeno [${j.xeno_id}] -> ${j.target_role}`.slice(0, 100),
-              value: String(j.id)
-            })))
-        )
-      );
     }
   } else if (screen === 'start-help') {
     container.addTextDisplayComponents(
@@ -353,7 +371,11 @@ module.exports = {
       const guildId = interaction.guildId;
       const hydrated = await hydrateLegacyFacehuggers(userId, interaction.guildId);
       const loadXenos = async () => await xenoModel.listByOwner(userId);
-      const loadJobs = async () => await db.knex('evolution_queue').where({ user_id: userId, status: 'queued' }).orderBy('id', 'asc');
+      const loadJobs = async (ownerId) => await db.knex('evolution_queue as q')
+        .leftJoin('xenomorphs as x', 'q.xeno_id', 'x.id')
+        .select('q.*', 'x.role as xeno_role', 'x.stage as xeno_stage')
+        .where({ 'q.user_id': ownerId, 'q.status': 'queued' })
+        .orderBy('q.id', 'asc');
 
       if (sub === 'list') {
         const list = await loadXenos();
@@ -424,8 +446,29 @@ module.exports = {
                   const finishes = now + defaults.time_ms;
                   const inserted = await db.knex('evolution_queue').insert({ xeno_id: xenoId, user_id: userId, hive_id: xeno.hive_id || null, target_role: target, started_at: now, finishes_at: finishes, cost_jelly: defaults.cost_jelly, stabilizer_used: false, status: 'queued' });
                   const id = Array.isArray(inserted) ? inserted[0] : inserted;
-                  const hostPart = hostId ? ` Host #${hostId} consumed.` : '';
-                  await respond({ components: buildEvolveView({ screen: 'result', message: `Evolution started (job #${id}) for xeno #${xenoId} → ${target}. Cost: ${defaults.cost_jelly} royal jelly.${hostPart} Finishes in ~${Math.round(defaults.time_ms / 60000)} minutes.`, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
+                  const hostPart = hostId ? `Host #${hostId} consumed.` : '';
+                  const evolCfg = require('../../../config/evolutions.json');
+                  const emojisUtil = emojisCfg; // already loaded at top
+                  function getRoleDisplayLocal(roleId) {
+                    const key = String(roleId || '').toLowerCase();
+                    const roleInfo = (evolCfg && evolCfg.roles && evolCfg.roles[key]) ? evolCfg.roles[key] : {};
+                    const display = roleInfo.display || roleId || 'Unknown';
+                    const emojiKey = roleInfo.emoji;
+                    const emoji = emojiKey && emojisUtil[emojiKey] ? `${emojisUtil[emojiKey]} ` : '';
+                    return `${emoji}${display}`.trim();
+                  }
+
+                  const fromDisplay = getRoleDisplayLocal(xeno.role || xeno.stage || '');
+                  const toDisplay = getRoleDisplayLocal(target);
+                  const jellyEmoji = emojisCfg['royal_jelly'] || '';
+                  const finishTs = Math.floor(finishes / 1000);
+                  const lines = [];
+                  lines.push(`Your evolution job [${id}] started`);
+                  lines.push(`${fromDisplay} [${xenoId}] → ${toDisplay} [${xenoId}]`);
+                  lines.push(`Cost: ${jellyEmoji} ${defaults.cost_jelly} royal jelly.${hostPart ? ' ' + hostPart : ''}`);
+                  lines.push(`Finishes: <t:${finishTs}:R> (<t:${finishTs}:F>)`);
+
+                  await respond({ components: buildEvolveView({ screen: 'result', message: lines.join('\n\n'), client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
                 }
               }
             }
@@ -449,9 +492,9 @@ module.exports = {
             await db.knex('evolution_queue').where({ id: jobId }).del();
             await respond({ components: buildEvolveView({ screen: 'result', message: 'Evolution cancelled. Resources are not refunded.', client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
           }
-        } else {
-          const jobs = await loadJobs();
-          await respond({ components: buildEvolveView({ screen: 'cancel', jobs, cancelPage: 0, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
+          } else {
+            const jobs = await loadJobs(userId);
+            await respond({ components: buildEvolveView({ screen: 'cancel', jobs, cancelPage: 0, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
         }
       }
 
@@ -485,6 +528,56 @@ module.exports = {
             return;
           }
 
+          if (String(i.customId).startsWith('evolve-cancel-job:')) {
+            const jobId = Number(String(i.customId).split(':')[1]);
+            if (!jobId) {
+              try { await i.update({ components: buildEvolveView({ screen: 'result', message: 'Invalid job id.', client: interaction.client }) }); } catch (_) {}
+              return;
+            }
+            // Load job
+            const job = await db.knex('evolution_queue').where({ id: jobId }).first();
+            if (!job) {
+              await i.update({ components: buildEvolveView({ screen: 'result', message: 'Job not found.', client: interaction.client }) });
+              return;
+            }
+            if (String(job.user_id) !== userIdInner) {
+              await i.update({ components: buildEvolveView({ screen: 'result', message: 'You do not own this job.', client: interaction.client }) });
+              return;
+            }
+            if (job.status !== 'queued') {
+              await i.update({ components: buildEvolveView({ screen: 'result', message: 'Job has already started or completed and cannot be cancelled.', client: interaction.client }) });
+              return;
+            }
+
+            // Fetch current xeno role for display
+            const currentXeno = await db.knex('xenomorphs').where({ id: job.xeno_id }).first();
+            const fromRole = currentXeno ? (currentXeno.role || currentXeno.stage || '') : '';
+
+            // Delete job
+            await db.knex('evolution_queue').where({ id: jobId }).del();
+
+            // DM the user to confirm cancellation using V2 components
+            try {
+              const user = await interaction.client.users.fetch(String(userIdInner));
+              if (user) {
+                try {
+                  const container = new ContainerBuilder();
+                  container.addTextDisplayComponents(
+                    new TextDisplayBuilder().setContent('## Evolution Cancelled'),
+                    new TextDisplayBuilder().setContent(`Your evolution job [${jobId}] was cancelled`),
+                    new TextDisplayBuilder().setContent(`${getRoleDisplay(fromRole)} [${job.xeno_id}] -> ${getRoleDisplay(job.target_role)} [${job.xeno_id}]`)
+                  );
+                  await user.send({ components: [container], flags: MessageFlags.IsComponentsV2 });
+                } catch (_) {}
+              }
+            } catch (_) {}
+
+            // Refresh cancel screen
+            const jobs = await loadJobs(userIdInner);
+            await i.update({ components: buildEvolveView({ screen: 'cancel', jobs, cancelPage: 0, client: interaction.client }) });
+            return;
+          }
+
           if (i.customId === 'evolve-list-prev-page' || i.customId === 'evolve-list-next-page') {
             const isPrev = i.customId === 'evolve-list-prev-page';
             currentListPage = isPrev ? currentListPage - 1 : currentListPage + 1;
@@ -506,7 +599,7 @@ module.exports = {
           }
           if (i.customId === 'evolve-nav-cancel') {
             currentCancelPage = 0;
-            const jobs = await db.knex('evolution_queue').where({ user_id: userIdInner, status: 'queued' }).orderBy('id', 'asc');
+            const jobs = await loadJobs(userIdInner);
             await i.update({ components: buildEvolveView({ screen: 'cancel', jobs, cancelPage: currentCancelPage, client: interaction.client }) });
             return;
           }
