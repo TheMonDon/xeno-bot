@@ -59,6 +59,17 @@ Date: 2026-03-07
 - **Minor:** Continued polish to grouped `/evolve start` autocomplete labels and count formatting (counts use `(xN)`).
 
 
+## v1.9.19 — Fix: xenomorph guild scoping & data backfill
+
+Date: 2026-03-07
+
+- **Fixed:** Xenomorphs are now explicitly stored and queried per-guild so `/inventory` and `/evolve` only show xenomorphs that belong to the same server.
+- **Schema:** Added `guild_id` column to the `xenomorphs` table and updated `src/models/xenomorph.js` to write/read this column when available.
+- **Migration & Backfill:** Added migration `20260307140000_add_xenomorphs_guild_id.js` and a data backfill migration `20260307151000_populate_xenomorphs_guild_id.js` that derives `guild_id` from each xeno's `hive_id` (or the owner's first hive when a direct hive link was missing).
+- **Why:** Prevents cross-server inventory leakage and makes guild-scoped features reliable without inferring guilds from other relations.
+- **Notes:** Rows where a guild could not be derived remain `NULL` and will be excluded by guild-scoped queries unless `includeUnassigned` is used. Run migrations on any additional DB instances (staging/replica) as needed.
+
+
 
 
 
