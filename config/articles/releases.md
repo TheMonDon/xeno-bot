@@ -77,6 +77,16 @@ Date: 2026-03-07
 - **Improved:** The `/evolve list` view now formats entries to match the rest of the bot UI: `<emoji> <Role Display> [ID]` with the pathway shown on a second line. This makes xenomorph entries consistent with other lists (hosts, eggs) and improves scanability.
 - **Why:** Previously the list used a compact `#id role` line that lacked the role emoji and consistent bracketed ID. The new format uses configured role emojis and display names to match completion/cancel messages and other UX patterns.
 - **Files:** `src/commands/evolve/index.js` updated to use `getRoleDisplay()` for list entries.
+ 
+
+## v1.9.21 — Fix: leaderboard scoping and paging
+
+Date: 2026-03-07
+
+- **Fixed:** `/leaderboard global` and `/leaderboard server` now correctly preserve and apply sort/filter options across interaction pages and component updates.
+- **Global:** All component interactions on the global leaderboard now explicitly run the global subcommand so every update continues to use global aggregates.
+- **Server:** All component interactions on the server leaderboard now explicitly run the server subcommand so rankings and filters are computed from server-local data only (no global fallbacks).
+- **Why:** Previously component updates could lose the subcommand context and mix global/server data, producing confusing or incorrect rankings. This change ensures consistent, predictable leaderboard pages.
 
 
 

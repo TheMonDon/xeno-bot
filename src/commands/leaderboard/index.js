@@ -137,10 +137,11 @@ module.exports = {
 
   async executeInteraction(interaction) {
     const logger = require('../../utils/logger').get('command:leaderboard');
-    // determine subcommand (if any)
+    // determine subcommand (if any). Default to 'server' when used inside a guild.
     let sub = null;
     try { sub = interaction.options && interaction.options.getSubcommand ? (() => { try { return interaction.options.getSubcommand(); } catch (e) { return null; } })() : null; } catch (e) { sub = null; }
-    const sort = (sub === 'server') ? (interaction.options.getString('sort') || 'eggs') : (interaction.options.getString('sort') || 'eggs');
+    if (!sub && interaction.guildId) sub = 'server';
+    const sort = (interaction.options && typeof interaction.options.getString === 'function') ? (interaction.options.getString('sort') || 'eggs') : 'eggs';
     if (!(interaction.isStringSelectMenu && interaction.isStringSelectMenu())) {
       await interaction.deferReply({ ephemeral: cmd.ephemeral === true });
     }
@@ -371,14 +372,18 @@ module.exports = {
         if (i.customId === 'leaderboard-sort') {
           const newSort = i.values[0];
           i.options = { getString: () => newSort, getSubcommand: () => 'global' };
+          // preserve the original guild context so re-invoked handler uses per-guild data
+          try { i.guildId = interaction.guildId; } catch (e) {}
           await module.exports.executeInteraction(i);
         } else if (i.customId === 'leaderboard-eggtype') {
           const newSort = i.values[0];
           i.options = { getString: () => newSort, getSubcommand: () => 'global' };
+          try { i.guildId = interaction.guildId; } catch (e) {}
           await module.exports.executeInteraction(i);
         } else if (i.customId === 'leaderboard-hosttype') {
           const newSort = i.values[0];
           i.options = { getString: () => newSort, getSubcommand: () => 'global' };
+          try { i.guildId = interaction.guildId; } catch (e) {}
           await module.exports.executeInteraction(i);
         }
       });
@@ -554,15 +559,19 @@ module.exports = {
       collector.on('collect', async i => {
         if (i.customId === 'leaderboard-sort') {
           const newSort = i.values[0];
-          i.options = { getString: () => newSort };
+          i.options = { getString: () => newSort, getSubcommand: () => 'server' };
+          // ensure the re-invoked interaction preserves the guild id
+          try { i.guildId = interaction.guildId; } catch (e) {}
           await module.exports.executeInteraction(i);
         } else if (i.customId === 'leaderboard-eggtype') {
           const newSort = i.values[0];
-          i.options = { getString: () => newSort };
+          i.options = { getString: () => newSort, getSubcommand: () => 'server' };
+          try { i.guildId = interaction.guildId; } catch (e) {}
           await module.exports.executeInteraction(i);
         } else if (i.customId === 'leaderboard-hosttype') {
           const newSort = i.values[0];
-          i.options = { getString: () => newSort };
+          i.options = { getString: () => newSort, getSubcommand: () => 'server' };
+          try { i.guildId = interaction.guildId; } catch (e) {}
           await module.exports.executeInteraction(i);
         }
       });
