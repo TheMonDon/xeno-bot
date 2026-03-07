@@ -68,7 +68,9 @@ module.exports = {
         const now = Date.now();
         switch (item.id) {
           case 'incubation_accelerator':
-            data.guilds[guildId].effects.incubation_accelerator = { applied_at: now, multiplier: 0.5, expires_at: now + 1000 * 60 * 60 };
+            // Choose a random multiplier between 0.25 and 0.5 (reduces hatch time to 25-50%)
+            const randMul = Math.round(((Math.random() * (0.5 - 0.25)) + 0.25) * 100) / 100;
+            data.guilds[guildId].effects.incubation_accelerator = { applied_at: now, multiplier: randMul, expires_at: now + 1000 * 60 * 60 };
             break;
           case 'jelly_extractor':
             data.guilds[guildId].effects.jelly_extractor = { applied_at: now, multiplier: 2, expires_at: now + 1000 * 60 * 60 * 2 };
@@ -95,11 +97,44 @@ module.exports = {
             break;
         }
         await userModel.updateUserDataRawById(user.id, data);
+        // Provide more informative feedback for certain items
+        if (item.id === 'incubation_accelerator') {
+          const mul = data.guilds[guildId].effects && data.guilds[guildId].effects.incubation_accelerator && data.guilds[guildId].effects.incubation_accelerator.multiplier;
+          return respond({ content: `Used one ${item.name}. Effect applied. Multiplier: ${mul || 'unknown'} (hatch times will be multiplied by this value for the next egg).` });
+        }
         return respond({ content: `Used one ${item.name}. Effect applied.` });
       } catch (e) {
         return respond({ content: `Failed to use item: ${e && e.message ? e.message : e}` });
       }
     }
+
+  async autocomplete(interaction) {
+    try {
+      const focused = interaction.options.getFocused ? interaction.options.getFocused(true) : null;
+      if (!focused) return interaction.respond([]);
+      const guildId = interaction.guildId;
+      const discordId = String(interaction.user.id);
+      const u = await userModel.getUserByDiscordId(discordId);
+      let inventoryItems = [];
+      if (u && u.data && u.data.guilds && u.data.guilds[guildId] && u.data.guilds[guildId].items) {
+        inventoryItems = Object.entries(u.data.guilds[guildId].items).map(([id, qty]) => ({ id, qty: Number(qty) })).filter(i => i.qty > 0);
+      }
+      if (!inventoryItems || inventoryItems.length === 0) {
+        // no items -> respond with all shop items (qty 0)
+        const shopItems = (require('../../../config/shop.json').items || []).slice(0, 25).map(it => ({ name: `${it.name} (0)`, value: it.id }));
+        return interaction.respond(shopItems);
+      }
+      const q = String(focused.value || '').toLowerCase();
+      const shop = require('../../../config/shop.json');
+      const mapped = inventoryItems
+        .filter(i => !q || i.id.toLowerCase().includes(q) || (shop.items.find(s => s.id === i.id)?.name || '').toLowerCase().includes(q))
+        .slice(0, 25)
+        .map(i => ({ name: `${(shop.items.find(s => s.id === i.id)?.name) || i.id} (${i.qty})`, value: i.id }));
+      return interaction.respond(mapped);
+    } catch (e) {
+      try { return interaction.respond([]); } catch (_) {}
+    }
+  }
 
     if (sub === 'combine') {
       await interaction.deferReply({ ephemeral: true });

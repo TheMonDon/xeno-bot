@@ -16,6 +16,7 @@
 
     "deploy-commands": "node deploy-commands.js",
     "update-topgg-commands": "node scripts/update-topgg-commands.js",
+    "cleanup-shop-items": "node scripts/remove-shop-items.js",
     "start:local": "NODE_ENV=development node src/index.js",
     "migrate:facehuggers:dry": "node scripts/migrate-facehuggers-to-xenos.js",
     "migrate:facehuggers": "node scripts/migrate-facehuggers-to-xenos.js --apply",

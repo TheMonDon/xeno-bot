@@ -77,6 +77,26 @@ async function startHatch(discordId, guildId, eggTypeId, durationMs) {
   const data = user.data || {};
   data.guilds = data.guilds || {};
   const g = data.guilds[guildId] = data.guilds[guildId] || { eggs: {}, items: {}, currency: {} };
+  // Check for single-use incubation accelerator effect and apply it to duration
+  try {
+    const now = Date.now();
+    if (g && g.effects && g.effects.incubation_accelerator) {
+      const eff = g.effects.incubation_accelerator;
+      if (eff && (eff.expires_at || 0) > now) {
+        const mul = (typeof eff.multiplier === 'number' && eff.multiplier > 0 && eff.multiplier <= 1) ? Number(eff.multiplier) : null;
+        if (mul) {
+          durationMs = Math.max(1, Math.floor(Number(durationMs || 60_000) * mul));
+          // consume the effect (single-use)
+          try { delete g.effects.incubation_accelerator; } catch (_) { g.effects.incubation_accelerator = null; }
+        }
+      } else {
+        // expired - remove
+        try { delete g.effects.incubation_accelerator; } catch (_) { g.effects.incubation_accelerator = null; }
+      }
+    }
+  } catch (e) {
+    logger.warn && logger.warn('Failed applying incubation_accelerator effect', { discordId, guildId, error: e && (e.stack || e) });
+  }
   const curEggs = Number((g.eggs && g.eggs[eggTypeId]) || 0);
   if (curEggs <= 0) throw new Error('No egg of that type to hatch');
   // decrement egg

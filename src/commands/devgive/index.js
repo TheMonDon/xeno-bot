@@ -56,6 +56,7 @@ module.exports = {
         required: true,
         choices: [
           { name: 'Credits', value: 'credits' },
+          { name: 'Item', value: 'item' },
           { name: 'Egg', value: 'egg' },
           { name: 'Xenomorph', value: 'xenomorph' },
           { name: 'Host', value: 'host' },
@@ -226,6 +227,24 @@ module.exports = {
         
         await userModel.addEggsForGuild(String(target.id), String(guildId), amount, String(eggTypeId));
         await safeReply(interaction, { content: `Gave ${eggType.emoji || ''} ${eggType.name} x${amount} to ${target}.`, ephemeral: true }, { loggerName: 'command:devgive' });
+        return;
+      }
+
+      if (type === 'item') {
+        const itemId = interaction.options.getString('egg_type') || interaction.options.getString('item_id') || null;
+        const amount = Math.max(1, Number(interaction.options.getNumber('amount') || 1));
+        if (!target || !itemId) {
+          await safeReply(interaction, { content: 'User and item id are required for items.', ephemeral: true }, { loggerName: 'command:devgive' });
+          return;
+        }
+        try {
+          const userModel = require('../../models/user');
+          const guildId = interaction.guildId;
+          await userModel.addItemForGuild(String(target.id), guildId, itemId, amount);
+          await safeReply(interaction, { content: `Gave ${amount} × ${itemId} to ${target}.`, ephemeral: true }, { loggerName: 'command:devgive' });
+        } catch (e) {
+          await safeReply(interaction, { content: `Failed to give item: ${e && e.message ? e.message : e}`, ephemeral: true }, { loggerName: 'command:devgive' });
+        }
         return;
       }
       
