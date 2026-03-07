@@ -333,6 +333,16 @@ try {
   logger.warn('evolutionWorker module not available', { error: e && (e.stack || e) });
 }
 
+// Start hive worker to award royal jelly from hive production
+try {
+  const hiveWorker = require('./hiveWorker');
+  client.once('clientReady', () => {
+    try { hiveWorker.start().catch(e => logger.warn('Failed starting hive worker', { error: e && (e.stack || e) })); } catch (e) { logger.warn('Failed to invoke hiveWorker.start', { error: e && (e.stack || e) }); }
+  });
+} catch (e) {
+  logger.warn('hiveWorker module not available', { error: e && (e.stack || e) });
+}
+
 // Load commands (support both flat files and directory-based commands)
 const commandsPath = path.join(__dirname, 'commands');
 if (fs.existsSync(commandsPath)) {

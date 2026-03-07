@@ -272,11 +272,14 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
     
     // Header buttons: Queen and Capacity upgrades
     const headerButtons = [];
+    const hiveData = hive.data || {};
+    const priorQueenUpgrades = Number(hiveData.queen_upgrades || 0);
+    const queenCost = computeQueenCost(priorQueenUpgrades, 50);
     
     headerButtons.push(
       new PrimaryButtonBuilder()
         .setCustomId(HIVE_ACTION_UPGRADE_QUEEN_ID)
-        .setLabel('Queen +1 (50 RJ)')
+        .setLabel(`Queen +1 (${formatNumber(queenCost)} RJ)`)
         .setDisabled(!canAct || !hasQueen)
     );
     
@@ -512,6 +515,16 @@ function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}
   return [container];
 }
 
+// Compute queen upgrade cost by applying a 0.25% increase iteratively
+function computeQueenCost(priorUpgrades, baseCost = 50) {
+  let cost = Number(baseCost || 50);
+  const times = Math.max(0, Number(priorUpgrades || 0));
+  for (let i = 0; i < times; i++) {
+    cost = Math.max(1, Math.ceil(cost * 1.0025));
+  }
+  return cost;
+}
+
 function buildNoHiveV2Payload({ includeFlags = true, client = null }) {
   const container = new ContainerBuilder();
   addV2TitleWithBotThumbnail({ container, title: 'No Hive Found', client });
@@ -607,6 +620,24 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
   const royalJelly = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
   let resources = { royal_jelly: royalJelly };
 
+  // Backfill queen_upgrades for older hives that predate the pricing change.
+  try {
+    const hiveData = viewHive.data || {};
+    if (hiveData.queen_upgrades === undefined) {
+      // Infer prior upgrades from jelly production (each prior upgrade added +1 RJ/hour).
+      const inferred = Math.max(0, Math.floor(Number(viewHive.jelly_production_per_hour || 0)));
+      if (inferred > 0) {
+        const newData = Object.assign({}, hiveData, { queen_upgrades: inferred });
+        await hiveModel.updateHiveById(viewHive.id, { data: newData }).catch(() => {});
+        viewHive = { ...viewHive, data: newData };
+        // Refresh the message so UI reflects updated pricing label
+        try { await msg.edit({ components: buildHiveScreen({ screen: 'stats', hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, client: interaction.client }) }).catch(() => {}); } catch (_) {}
+      }
+    }
+  } catch (e) {
+    // don't block the UI on backfill failures
+  }
+
   let currentScreen = 'stats';
   let currentMembersPage = 0;
   let currentModulesPage = 0;
@@ -631,7 +662,11 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
       }
 
       if (i.customId === HIVE_ACTION_UPGRADE_QUEEN_ID) {
-        const cost = 50;
+        // Queen upgrade cost: iterative 0.25% increases on current cost
+        const baseCost = 50;
+        const hiveData = (viewHive && viewHive.data) ? viewHive.data : {};
+        const priorUpgrades = Number(hiveData.queen_upgrades || 0);
+        const cost = computeQueenCost(priorUpgrades, baseCost);
         let rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
         if (rj < cost) {
           resources = { royal_jelly: rj };
@@ -639,8 +674,12 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
           return;
         }
         await userModel.modifyCurrencyForGuild(String(userId), guildId, 'royal_jelly', -cost);
-        await hiveModel.updateHiveById(viewHive.id, { jelly_production_per_hour: (Number(viewHive.jelly_production_per_hour || 0) + 1) });
-        viewHive = { ...viewHive, jelly_production_per_hour: Number(viewHive.jelly_production_per_hour || 0) + 1 };
+        // increment jelly production
+        const newProduction = Number(viewHive.jelly_production_per_hour || 0) + 1;
+        // persist new production and increment queen_upgrades counter in hive data
+        const newData = Object.assign({}, (viewHive.data || {}), { queen_upgrades: priorUpgrades + 1 });
+        await hiveModel.updateHiveById(viewHive.id, { jelly_production_per_hour: newProduction, data: newData });
+        viewHive = { ...viewHive, jelly_production_per_hour: newProduction, data: newData };
         rj = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
         resources = { royal_jelly: rj };
         await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `Queen upgraded. +1 jelly/hour (spent ${formatNumber(cost)} RJ).`, membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }) });

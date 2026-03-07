@@ -109,9 +109,15 @@ async function safeReply(interaction, payload = {}, opts = {}) {
             } catch (_) {}
           }
           // fallthrough to followUp
-          try {
-            if (typeof interaction.followUp === 'function') return await interaction.followUp(payload);
-          } catch (e2) {
+            try {
+              if (typeof interaction.followUp === 'function') {
+                if (interaction.replied || interaction.deferred) {
+                  return await interaction.followUp(payload);
+                } else {
+                  logger && logger.warn && logger.warn('safeReply: followUp skipped because interaction not replied/deferred', { interaction: dumpInteractionState(interaction) });
+                }
+              }
+            } catch (e2) {
             if (usingStyledPayload) {
               try {
                 if (typeof interaction.followUp === 'function') return await interaction.followUp(originalPayload);
@@ -167,7 +173,13 @@ async function safeReply(interaction, payload = {}, opts = {}) {
           } catch (_) {}
         }
         try {
-          if (typeof interaction.followUp === 'function') return await interaction.followUp(payload);
+          if (typeof interaction.followUp === 'function') {
+            if (interaction.replied || interaction.deferred) {
+              return await interaction.followUp(payload);
+            } else {
+              logger && logger.warn && logger.warn('safeReply: followUp skipped because interaction not replied/deferred (final fallback)', { interaction: dumpInteractionState(interaction) });
+            }
+          }
         } catch (e3) {
           if (usingStyledPayload) {
             try {
