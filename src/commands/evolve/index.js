@@ -643,7 +643,7 @@ module.exports = {
               const req = findRequirement(evol, path, from);
               if (req && req.to) {
                 const roleCfg = evol && evol.roles && evol.roles[req.to] ? evol.roles[req.to] : null;
-                targets = [{ id: req.to, name: roleCfg && roleCfg.display ? `${req.to} — ${roleCfg.display}` : req.to }];
+                targets = [{ id: req.to, name: roleCfg && roleCfg.display ? roleCfg.display : req.to }];
               }
             }
           }
@@ -670,7 +670,9 @@ module.exports = {
             hg.ids.sort((a, b) => a - b);
             const rep = hg.ids[0];
             const count = hg.ids.length;
-            const display = getHostDisplay(hg.host_type, hostsCfg.hosts || {}, emojisCfg);
+            // Use only the host display name here (avoid inserting raw emoji markup into autocomplete labels)
+            const hostInfo = (hostsCfg && hostsCfg.hosts && hostsCfg.hosts[hg.host_type]) ? hostsCfg.hosts[hg.host_type] : null;
+            const display = hostInfo && hostInfo.display ? hostInfo.display : hg.host_type;
             return { id: String(rep), name: `${display} (x${count}) [#${rep}]` };
           });
           return autocomplete(interaction, hostItems, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });

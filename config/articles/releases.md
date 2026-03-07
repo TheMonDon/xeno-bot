@@ -50,6 +50,15 @@ Date: 2026-03-07
 - **Behavior:** Each grouped option uses a single representative ID (the lowest ID in the group) as the option value so Discord accepts the numeric value. This keeps the command compatible while improving readability. If you prefer a follow-up selector to pick a specific ID from the group, we can add that as a later enhancement.
 - **Related:** Added robust pathway/role normalization so pathway-specific facehugger variants (e.g., `space_jockey_facehugger`) are matched even if the user types `space` or `spacejockey`.
 
+## v1.9.18 — Fix: host autocomplete labels & `next_stage` display
+
+Date: 2026-03-07
+
+- **Fixed:** Host autocomplete labels no longer include raw emoji markup. Autocomplete now shows only the host display name (e.g., `Colonial Marine (x1) [#8437]`) to avoid raw emoji token text appearing in selection lists.
+- **Fixed:** The `next_stage` autocomplete now shows only the role display name (for example, `Deacon`) instead of `deacon — Deacon`, making selections cleaner and easier to read.
+- **Minor:** Continued polish to grouped `/evolve start` autocomplete labels and count formatting (counts use `(xN)`).
+
+
 
 
 
