@@ -2,27 +2,33 @@
   "pathways": {
     "standard": {
       "stages": ["facehugger", "runner_facehugger", "drone", "warrior", "praetorian", "queen"],
-      "description": "Standard human-host evolution pathway"
+      "description": "Standard human-host evolution pathway",
+      "time_ms": 3600000
     },
     "dog": {
       "stages": ["dog_facehugger", "runner", "sentry", "crusher", "queen"],
-      "description": "Canine-host pathway with different mid roles"
+      "description": "Canine-host pathway with different mid roles",
+      "time_ms": 1800000
     },
     "king": {
       "stages": ["king_facehugger", "knight", "grand_duke", "prince", "king"],
-      "description": "High-tier King pathway requiring rare eggs and hosts"
+      "description": "High-tier King pathway requiring rare eggs and hosts",
+      "time_ms": 7200000
     },
     "deacon": {
       "stages": ["hammerpede", "trilobite", "deacon"],
-      "description": "Mutation-focused deacon pathway"
+      "description": "Mutation-focused deacon pathway",
+      "time_ms": 5400000
     },
     "neomorph": {
       "stages": ["bloodburster", "neomorph"],
-      "description": "Neomorph pathway unlocked by rare eggs/hosts"
+      "description": "Neomorph pathway unlocked by rare eggs/hosts",
+      "time_ms": "3h"
     },
     "space_jockey": {
       "stages": ["space_jockey_facehugger", "drone", "space_jockey"],
-      "description": "Space Jockey pathway producing the Space Jockey Xeno"
+      "description": "Space Jockey pathway producing the Space Jockey Xeno",
+      "time": "1w"
     }
   },
   "eggPathways": {

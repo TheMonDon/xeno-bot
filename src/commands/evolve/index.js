@@ -134,8 +134,15 @@ function renderInfoText(xeno, evol) {
     ? evol.pathways[pathwayKey]
     : (evol && evol.pathways && evol.pathways.standard) ? evol.pathways.standard : null;
   const roleMap = (evol && evol.roles) ? evol.roles : {};
+  const formatDuration = require('../../utils/formatDuration');
 
   let out = `**#${xeno.id} ${xeno.role || xeno.stage}**\nPathway: ${pathwayKey}`;
+  // show pathway default evolution time if configured
+  try {
+    const rawPathTime = pathway && (pathway.time || pathway.time_ms);
+    const parsed = require('../../utils/parseDuration')(rawPathTime || pathway && pathway.time_ms || null);
+    if (parsed) out += `\nDefault evolution time: ${formatDuration(parsed)}`;
+  } catch (_) {}
   if (pathway && Array.isArray(pathway.stages)) {
     const stages = pathway.stages.map(s => ({ id: s, label: (roleMap[s] && roleMap[s].display) ? roleMap[s].display : s }));
     const currentStageId = xeno.role || xeno.stage || null;
@@ -143,7 +150,15 @@ function renderInfoText(xeno, evol) {
     for (let i = 0; i < stages.length; i++) {
       const s = stages[i];
       const marker = (currentStageId && String(s.id) === String(currentStageId)) ? '◉' : '○';
-      out += `${marker} ${s.label}${i === stages.length - 1 ? ' (final)' : ''}\n`;
+      // Check for per-step override time
+      let stepTimeLabel = '';
+      try {
+        const req = findRequirement(evol, pathwayKey, s.id);
+        const raw = req && (req.time || req.time_ms);
+        const parsed = require('../../utils/parseDuration')(raw || null);
+        if (parsed) stepTimeLabel = ` (time: ${formatDuration(parsed)})`;
+      } catch (_) {}
+      out += `${marker} ${s.label}${i === stages.length - 1 ? ' (final)' : ''}${stepTimeLabel}\n`;
     }
     const idx = stages.findIndex(s => String(s.id) === String(currentStageId));
     if (idx >= 0 && idx < stages.length - 1) out += `\nNext stage: ${stages[idx + 1].label}`;
@@ -434,7 +449,16 @@ module.exports = {
               }
 
               if (!hostValidationFailed) {
-                const defaults = { cost_jelly: Number(stepReq.cost_jelly || 0), time_ms: 1000 * 60 * 60 };
+                // Determine duration: prefer per-step `time_ms`/`time`, then pathway-level `time_ms`/`time`, then fallback 1 hour
+                const parseDuration = require('../../utils/parseDuration');
+                const pathwayCfg = (evol && evol.pathways && evol.pathways[pathwayKey]) ? evol.pathways[pathwayKey] : null;
+                const rawStepTime = stepReq.time_ms ?? stepReq.time ?? null;
+                const rawPathTime = pathwayCfg ? (pathwayCfg.time_ms ?? pathwayCfg.time ?? null) : null;
+                const resolvedMs = parseDuration(rawStepTime) ?? parseDuration(rawPathTime) ?? 1000 * 60 * 60;
+                const defaults = {
+                  cost_jelly: Number(stepReq.cost_jelly || 0),
+                  time_ms: Number(resolvedMs)
+                };
                 const jelly = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
                 if (jelly < defaults.cost_jelly) {
                   await respond({ components: buildEvolveView({ screen: 'result', message: `Insufficient royal jelly. Need ${defaults.cost_jelly}.`, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });

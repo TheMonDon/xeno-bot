@@ -39,17 +39,23 @@ async function processDueJobs(client) {
       if (success) {
         const currentXeno = await db.knex('xenomorphs').where({ id: job.xeno_id }).first();
         const fromRole = currentXeno?.role || currentXeno?.stage || 'unknown';
+        // Canonicalize target role for legacy 'facehugger' values
+        let targetRole = job.target_role;
+        try {
+          const xenoModel = require('./models/xenomorph');
+          targetRole = xenoModel.canonicalizeFacehugger(currentXeno?.pathway || 'standard', job.target_role);
+        } catch (e) {}
         // update xenomorph role
-        await db.knex('xenomorphs').where({ id: job.xeno_id }).update({ role: job.target_role, updated_at: db.knex.fn.now() });
+        await db.knex('xenomorphs').where({ id: job.xeno_id }).update({ role: targetRole, updated_at: db.knex.fn.now() });
         await db.knex('evolution_queue').where({ id: job.id }).update({ status: 'completed', result: 'success', updated_at: db.knex.fn.now() });
         // DM the user
         try {
           const user = await client.users.fetch(String(job.user_id));
           if (user) {
             try {
-              await user.send(buildEvolutionCompleteV2Dm(job, fromRole, job.target_role));
+              await user.send(buildEvolutionCompleteV2Dm(job, fromRole, targetRole));
             } catch (v2Err) {
-              await user.send(`Your evolution job [${job.id}] completed\n${getRoleDisplay(fromRole)} [${job.xeno_id}] -> ${getRoleDisplay(job.target_role)} [${job.xeno_id}]`);
+              await user.send(`Your evolution job [${job.id}] completed\n${getRoleDisplay(fromRole)} [${job.xeno_id}] -> ${getRoleDisplay(targetRole)} [${job.xeno_id}]`);
             }
           }
         } catch (dmErr) {

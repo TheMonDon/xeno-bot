@@ -73,6 +73,16 @@ async function createXeno(ownerId, opts = {}) {
     } catch (_) {}
   }
 
+  // Canonicalize legacy 'facehugger' values to pathway-specific names
+  function canonicalizeFacehugger(pathway, value) {
+    if (!value) return value;
+    if (String(value) === 'facehugger' && pathway) return `${String(pathway)}_facehugger`;
+    return value;
+  }
+
+  payload.role = canonicalizeFacehugger(payload.pathway, payload.role);
+  payload.stage = canonicalizeFacehugger(payload.pathway, payload.stage);
+
   const id = await insertWithReusedId('xenomorphs', payload);
   return getXenoById(id);
 }
@@ -102,6 +112,11 @@ async function deleteXenosByOwner(ownerId) {
 
 module.exports = {
   // canonical names
+  canonicalizeFacehugger: function(pathway, value) {
+    if (!value) return value;
+    if (String(value) === 'facehugger' && pathway) return `${String(pathway)}_facehugger`;
+    return value;
+  },
   createXeno,
   getXenoById,
   getXenosByOwner,
