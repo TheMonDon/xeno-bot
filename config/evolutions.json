@@ -36,6 +36,12 @@
       "description": "Pathogen pathway unlocked by Pathogen Reagent; mutates Queens into Pathogen variants",
       "time_ms": 3600000
     }
+    ,
+    "predalien": {
+      "stages": ["predalien_facehugger", "predalien"],
+      "description": "Predalien pathway requiring Predator hosts for successful facehugging",
+      "time_ms": 3600000
+    }
   },
   "eggPathways": {
     "classic": "standard",
@@ -63,7 +69,7 @@
     "neomorph": "neomorph",
 
 
-    "predalien": "king",
+    "predalien": "predalien",
     "ultramorph": "king",
     "synthetic": "king",
     "android": "king",
@@ -108,6 +114,10 @@
       "drone": { "to": "pathogen_runner", "cost_jelly": 5000, "requires_items": ["pathogen"] },
       "pathogen_runner": { "to": "pathogen_burster", "cost_jelly": 10000, "requires_items": ["pathogen"] }
     }
+    ,
+    "predalien": {
+      "predalien_facehugger": { "to": "predalien", "cost_jelly": 1500, "requires_host_types": ["predator"] }
+    }
   },
   "minStageToCreateHive": "drone",
   "notes": "Eggs map to pathways through eggPathways. requirements defines next-stage transitions, host requirements, and jelly costs.",
@@ -138,5 +148,8 @@
     ,
     "pathogen_runner": { "display": "Pathogen Runner", "emoji": "pathogen_runner", "rarity": 7 },
     "pathogen_burster": { "display": "Pathogen Burster", "emoji": "pathogen_burster", "rarity": 8 }
+    ,
+    "predalien_facehugger": { "display": "Predalien Facehugger", "emoji": "facehugger", "rarity": 1 },
+    "predalien": { "display": "Predalien", "emoji": "predalien", "rarity": 9 }
   }
 }
