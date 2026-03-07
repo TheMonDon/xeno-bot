@@ -8,6 +8,7 @@ const cors = require('cors');
 const { URLSearchParams } = require('url');
 
 const guildModel = require('../src/models/guild');
+const userModel = require('../src/models/user');
 const db = require('../src/db');
 const knex = db.knex;
 
@@ -311,6 +312,67 @@ app.post('/internal/bot_guilds', async (req, res) => {
   } catch (e) {
     console.error('Failed to update bot_guilds', e && (e.stack || e));
     return res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// top.gg vote webhook
+// Configure TOPGG_TOKEN in env to verify incoming webhooks
+app.post('/topgg/webhook', async (req, res) => {
+  const expected = process.env.TOPGG_TOKEN;
+  const provided = req.headers['authorization'] || req.headers['Authorization'] || null;
+  if (!expected) return res.status(500).json({ error: 'topgg webhook not configured' });
+  if (!provided || String(provided).trim() !== String(expected).trim()) {
+    console.warn('Rejected top.gg webhook: invalid auth');
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const body = req.body || {};
+  // top.gg webhook payloads vary; commonly include `user` or `user_id` identifying the voter
+  const voterId = body.user || body.user_id || body.userId || (body && body.user && body.user.id) || null;
+  try {
+    if (!voterId) {
+      console.warn('top.gg webhook received without voter id', body);
+      return res.status(400).json({ error: 'missing_user' });
+    }
+
+    // Determine guild to award the golden egg in. Prefer explicit config.
+    const configuredGuild = process.env.VOTE_REWARD_GUILD_ID || process.env.GUILD_ID || null;
+    try {
+      // Award 1 global credit (tokens). For credits the guildId is ignored by the model, but we pass configuredGuild if available.
+      await userModel.modifyCurrencyForGuild(String(voterId), String(configuredGuild || ''), 'credits', 1);
+      console.log(`Awarded 1 credit to ${voterId}`);
+    } catch (e) {
+      console.warn('Failed to award credit to voter', e && (e.stack || e));
+    }
+
+    // DM the user to thank them. Use BOT_TOKEN or TOKEN env var.
+    const BOT_TOKEN = process.env.BOT_TOKEN || process.env.TOKEN || null;
+    if (BOT_TOKEN) {
+      try {
+        // create DM channel
+        const chRes = await fetch('https://discord.com/api/v10/users/@me/channels', {
+          method: 'POST',
+          headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recipient_id: String(voterId) })
+        });
+        if (chRes.ok) {
+          const ch = await chRes.json();
+          const msg = { content: `Thanks for voting! You've received a golden egg.` };
+          await fetch(`https://discord.com/api/v10/channels/${ch.id}/messages`, { method: 'POST', headers: { 'Authorization': `Bot ${BOT_TOKEN}`, 'Content-Type': 'application/json' }, body: JSON.stringify(msg) });
+        } else {
+          console.warn('Failed to create DM channel for voter', voterId, await chRes.text());
+        }
+      } catch (e) {
+        console.warn('Failed to DM voter', voterId, e && (e.stack || e));
+      }
+    } else {
+      console.log('No BOT_TOKEN/TOKEN configured — cannot DM voter');
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('top.gg webhook handler error', err && (err.stack || err));
+    return res.status(500).json({ error: 'internal_error' });
   }
 });
 
