@@ -574,7 +574,28 @@ module.exports = {
         try {
           const list = await xenoModel.listByOwner(String(userId));
           if (!list || list.length === 0) return autocomplete(interaction, [], { map: it => ({ name: `${it.role || it.stage} [${it.id}]`, value: it.id }), max: 25 });
-          const items = list.slice(0, 25).map(x => ({ id: String(x.id), name: `${x.role || x.stage} [${x.id}] • Pathway: ${x.pathway || 'standard'}` }));
+          // Filter to xenomorphs that have a configured next evolution step and are not already evolving
+          const evol = require('../../../config/evolutions.json');
+          const eligible = [];
+          // build busy set of xenos with queued evolution jobs
+          try {
+            const allIds = list.map(x => Number(x.id));
+            const busyRows = allIds.length ? await db.knex('evolution_queue').whereIn('xeno_id', allIds).andWhere({ status: 'queued' }).select('xeno_id') : [];
+            const busySet = new Set((busyRows || []).map(r => String(r.xeno_id)));
+            for (const x of list) {
+              const path = String(x.pathway || 'standard');
+              const from = String(x.role || x.stage || '');
+              const req = evol && evol.requirements && evol.requirements[path] ? evol.requirements[path][from] : null;
+              if (req && req.to) {
+                if (!busySet.has(String(x.id))) eligible.push(x);
+              }
+            }
+          } catch (err) {
+            // on DB error, fallback to no suggestions
+            try { await interaction.respond([]); } catch (_) {}
+            return;
+          }
+          const items = eligible.slice(0, 25).map(x => ({ id: String(x.id), name: `${x.role || x.stage} [${x.id}] • Pathway: ${x.pathway || 'standard'}` }));
           return autocomplete(interaction, items, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
         } catch (e) { try { await interaction.respond([]); } catch (_) {} return; }
       }
@@ -597,9 +618,9 @@ module.exports = {
               }
             }
           }
+          // If no specific target found for this xeno, return no options (don't show all roles)
           if (!targets.length) {
-            const roles = evol && evol.roles ? Object.keys(evol.roles).map(k => ({ id: k, name: `${k}${evol.roles[k].display ? ` — ${evol.roles[k].display}` : ''}` })) : [];
-            targets = roles;
+            targets = [];
           }
           return autocomplete(interaction, targets, { map: it => ({ name: it.name, value: it.id }), max: 25 });
         } catch (e) { try { await interaction.respond([]); } catch (_) {} return; }

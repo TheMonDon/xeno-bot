@@ -21,6 +21,18 @@ Date: 2026-03-07
 - **Root cause:** The inventory V2 view paged egg entries with a small page size which hid many egg types for heavy collectors.
 - **Fix:** Increased the inventory page size so `/inventory` shows more egg entries per page, reducing truncation. Further UI improvements (e.g., a "Show all" option) can be added if desired.
 
+## v1.9.15 — Fix: evolve autocomplete and evolving-xeno filtering
+
+Date: 2026-03-07
+
+- **Fixed:** `/evolve start` autocomplete previously suggested xenomorphs that either had no configured next evolution or were already undergoing evolution, which could lead to confusing UI and failed attempts.
+- **Root cause:** Autocomplete fell back to listing all roles when a selected xeno had no next step, and did not exclude xenos with queued evolution jobs.
+- **Fix:** Autocomplete now:
+  - only suggests xenomorphs that have a configured next evolution step for their pathway; and
+  - excludes xenomorphs that currently have a queued evolution job (status = `queued`).
+- **User impact:** Users will no longer see invalid or busy xenos in the selection list; attempting to start an evolution will only be possible for valid, idle xenos.
+
+
 
 
 ## v1.9.12 — Command option label consistency
