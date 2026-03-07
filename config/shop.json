@@ -14,5 +14,17 @@
       "rarity": "legendary",
       "emoji": "Black_goo"
     }
+    ,
+    {
+      "id": "scrap",
+      "name": "Scrap",
+      "description": "Bits of scrap metal recovered from failed hunts.",
+      "category": "boosts",
+      "price": 0,
+      "sellPrice": 0,
+      "sellable": false,
+      "rarity": "common",
+      "emoji": "<:scrap:1479934663882576053>"
+    }
   ]
 }

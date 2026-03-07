@@ -295,11 +295,45 @@ async function performHunt(interaction, client) {
     const found = Math.random() < findChance;
 
     if (!found) {
+      // On failed hunts, there's a chance to still find items.
       const container = new ContainerBuilder();
       addV2TitleWithBotThumbnail({ container, title: 'Hunt Failed', client });
       container.addTextDisplayComponents(
         new TextDisplayBuilder().setContent('You searched but found no suitable hosts this time.')
       );
+
+      const spawned = [];
+      try {
+        // ensure user exists
+        await userModel.findOrCreate(userId);
+
+        // 80% chance to spawn scrap (1-5)
+        if (Math.random() < 0.8) {
+          const qty = Math.floor(Math.random() * 5) + 1;
+          try {
+            await userModel.addItemForGuild(userId, guildId, 'scrap', qty);
+            spawned.push(`${qty} <:scrap:1479934663882576053>`);
+          } catch (e) {
+            logger.warn('Failed to add scrap to user inventory', { userId, guildId, error: e && e.message });
+          }
+        }
+
+        // 0.001% chance to spawn a Pathogen Reagent
+        if (Math.random() < 0.00001) {
+          try {
+            await userModel.addItemForGuild(userId, guildId, 'pathogen', 1);
+            spawned.push('Pathogen Reagent');
+          } catch (e) {
+            logger.warn('Failed to add pathogen to user inventory', { userId, guildId, error: e && e.message });
+          }
+        }
+      } catch (e) {
+        logger.warn('Failed during failed-hunt spawn logic', { userId, guildId, error: e && e.message });
+      }
+
+      if (spawned.length > 0) {
+        container.addTextDisplayComponents(new TextDisplayBuilder().setContent(`You also found: ${spawned.join(', ')}`));
+      }
 
       const payload = { components: [container], flags: MessageFlags.IsComponentsV2, ephemeral: true };
       return safeReply(interaction, payload, { loggerName: 'command:hunt' });
