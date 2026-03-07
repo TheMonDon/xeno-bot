@@ -1,5 +1,12 @@
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '.env') });
+// Load dashboard/.env first (if present), then fall back to repo root .env
+try {
+  require('dotenv').config({ path: path.join(__dirname, '.env') });
+} catch (_) {}
+try {
+  // load project root .env if variables not present
+  require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+} catch (_) {}
 const express = require('express');
 const session = require('express-session');
 const FileStore = require('session-file-store')(session);
