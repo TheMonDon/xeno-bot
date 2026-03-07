@@ -222,14 +222,17 @@ module.exports = {
           const hive = await hiveModel.getHiveByUser(discordId, guildId).catch(() => null);
           const queenId = hive && hive.queen_xeno_id ? Number(hive.queen_xeno_id) : null;
 
-          // Filter to xenos that belong to this guild: either explicit guild_id matches,
-          // or the xeno is attached to a hive whose guild_id matches.
+          // If the user selected the Pathogen item, allow drones as valid targets too
+          const selectedItem = (() => { try { return interaction.options.getString('item'); } catch (_) { return null; } })();
+          const allowDrones = selectedItem && String(selectedItem).toLowerCase() === 'pathogen';
+
+          // Filter to xenos that belong to this guild and match allowed roles
           const filtered = [];
           for (const x of (xenos || [])) {
-            // quick queen check
             const roleStr = String(x.role || x.stage || '').toLowerCase();
             const looksLikeQueen = roleStr.includes('queen') || (queenId && Number(x.id) === queenId);
-            if (!looksLikeQueen) continue;
+            const looksLikeDrone = roleStr === 'drone' || roleStr.includes('drone');
+            if (!looksLikeQueen && !(allowDrones && looksLikeDrone)) continue;
 
             let inGuild = false;
             if (x.guild_id && String(x.guild_id) === String(guildId)) inGuild = true;
@@ -246,7 +249,10 @@ module.exports = {
           const PATHOGEN_EMOJI = '<:pathogen_queen:1479910616411148519>';
           const candidates = filtered.map(x => {
             const roleLabel = (x.role || x.stage || x.pathway || 'xeno');
-            const display = String(roleLabel).toLowerCase().includes('pathogen') ? `${PATHOGEN_EMOJI} #${x.id}` : `${roleLabel} #${x.id}`;
+            let display;
+            if (String(roleLabel).toLowerCase().includes('pathogen')) display = `${PATHOGEN_EMOJI} #${x.id}`;
+            else if (String(roleLabel).toLowerCase().includes('drone')) display = `Drone #${x.id}`;
+            else display = `${roleLabel} #${x.id}`;
             return { name: display, value: String(x.id) };
           });
           return interaction.respond(candidates);
