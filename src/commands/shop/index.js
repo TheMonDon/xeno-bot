@@ -118,7 +118,6 @@ module.exports = {
   ephemeral: cmd.ephemeral === true,
   data: { name: cmd.name, description: cmd.description },
   async executeInteraction(interaction) {
-    await interaction.deferReply({ ephemeral: true });
     const categories = (shopConfig.categories || []).map(c => ({ id: c.id, name: c.name }));
     if (categories.length === 0) {
       const cats = new Set((shopConfig.items || []).map(i => i.category || 'general'));
@@ -141,20 +140,40 @@ module.exports = {
     const initialBalance = await userModel.getCurrencyForGuild(String(interaction.user.id), interaction.guildId, 'royal_jelly');
     const getCategoryName = (catId) => (categories.find(c => c.id === catId)?.name || 'Shop');
 
-    await safeReply(interaction, {
-      components: makeShopComponents({
-        categories,
-        currentCategory,
-        categoryName: getCategoryName(currentCategory),
-        pageIdx: page,
-        pages,
-        royalJelly: initialBalance,
-        expired: false,
-        client: interaction.client
-      }),
-      flags: MessageFlags.IsComponentsV2
-      // ephemeral is set by deferReply and cannot be changed in editReply
-    }, { loggerName: 'command:shop' });
+    // Send initial ephemeral reply with components (components must be included on the initial reply)
+    try {
+      const replyPayload = {
+        components: makeShopComponents({
+          categories,
+          currentCategory,
+          categoryName: getCategoryName(currentCategory),
+          pageIdx: page,
+          pages,
+          royalJelly: initialBalance,
+          expired: false,
+          client: interaction.client
+        }),
+        flags: (MessageFlags.IsComponentsV2 || 0) | MessageFlags.Ephemeral,
+        fetchReply: true
+      };
+      await interaction.reply(replyPayload);
+    } catch (e) {
+      // Fallback to safeReply if direct reply fails
+      await safeReply(interaction, {
+        components: makeShopComponents({
+          categories,
+          currentCategory,
+          categoryName: getCategoryName(currentCategory),
+          pageIdx: page,
+          pages,
+          royalJelly: initialBalance,
+          expired: false,
+          client: interaction.client
+        }),
+        flags: MessageFlags.IsComponentsV2,
+        ephemeral: true
+      }, { loggerName: 'command:shop' });
+    }
 
     let msg = null;
     try { msg = await interaction.fetchReply(); } catch (_) {}

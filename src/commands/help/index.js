@@ -12,7 +12,7 @@ const {
   SecondaryButtonBuilder,
   PrimaryButtonBuilder
 } = require('@discordjs/builders');
-const { getCommandConfig, getCommandsObject } = require('../../utils/commandsConfig');
+const { getCommandConfig, getCommandsObject, isCommandEphemeral } = require('../../utils/commandsConfig');
 const { addV2TitleWithBotThumbnail } = require('../../utils/componentsV2');
 const fallbackLogger = require('../../utils/fallbackLogger');
 const safeReply = require('../../utils/safeReply');
@@ -306,20 +306,13 @@ module.exports = {
     let pages = buildPagesForCategory(initialCategory);
     let page = 0;
 
-    // Defer with ephemeral flag before sending Components v2
-    const isEphemeral = cmd.ephemeral === true;
-    try {
-      await interaction.deferReply({ ephemeral: isEphemeral });
-    } catch (e) {
-      logger.error('Failed to defer help reply', { error: e && (e.stack || e), message: e && e.message });
-      throw e;
-    }
-
+    // Send initial help view as an explicit ephemeral reply when configured
+    const isEphemeral = isCommandEphemeral('help');
     try {
       await safeReply(interaction, {
         components: buildHelpComponents(currentCategory, pages, page, false, interaction.client),
-        flags: MessageFlags.IsComponentsV2
-        // ephemeral is set by deferReply and cannot be changed in editReply
+        flags: MessageFlags.IsComponentsV2,
+        ephemeral: isEphemeral
       }, { loggerName: 'command:help' });
     } catch (e) {
       try {

@@ -155,3 +155,28 @@ function buildSubcommandOptions(commandName, fallbackOptions = []) {
 }
 
 module.exports = { getCommandConfig, getCommandsObject, buildSubcommandOptions };
+
+/**
+ * Return whether a command should be sent ephemeral according to commands.json.
+ * Accepts both base commands and subcommand strings like 'eggs hatch' or 'leaderboard server'.
+ * Returns boolean (defaults to false when not specified).
+ */
+function isCommandEphemeral(commandName) {
+  if (!commandName) return false;
+  // Try direct config lookup
+  const cfg = getCommandConfig(commandName);
+  if (cfg && typeof cfg.ephemeral !== 'undefined') return !!cfg.ephemeral;
+
+  // Fallback: try top-level command name
+  const top = String(commandName).split(/[ ._\-]+/)[0];
+  const commands = loadCommands();
+  for (const cat of Object.values(commands)) {
+    if (cat && Object.prototype.hasOwnProperty.call(cat, top)) {
+      const base = cat[top];
+      if (base && typeof base.ephemeral !== 'undefined') return !!base.ephemeral;
+    }
+  }
+  return false;
+}
+
+module.exports.isCommandEphemeral = isCommandEphemeral;

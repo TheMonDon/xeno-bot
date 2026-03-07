@@ -5,6 +5,9 @@
  */
 const logger = require('./logger').get('collectorHelper');
 
+const { isCommandEphemeral } = require('./commandsConfig');
+const safeReply = require('./safeReply');
+
 module.exports = async function createInteractionCollector(interaction, opts = {}) {
   const {
     embeds,
@@ -20,9 +23,17 @@ module.exports = async function createInteractionCollector(interaction, opts = {
   const collectorOptionsFromCaller = opts.collectorOptions || {};
 
   try {
+    // If ephemeral wasn't explicitly set by caller, infer from command config when possible
+    let ephemeralFlag = ephemeral;
+    try {
+      if (ephemeralFlag === undefined && interaction && interaction.commandName) {
+        ephemeralFlag = !!isCommandEphemeral(interaction.commandName);
+      }
+    } catch (_) { ephemeralFlag = ephemeral; }
+
     // Ensure reply exists
     if (!interaction.deferred && !interaction.replied) {
-      try { await interaction.deferReply({ ephemeral }); } catch (e) { /* ignore */ }
+      try { await interaction.deferReply({ ephemeral: ephemeralFlag }); } catch (e) { /* ignore */ }
     }
 
     // Send or edit the reply content
@@ -58,8 +69,28 @@ module.exports = async function createInteractionCollector(interaction, opts = {
       return { collector: null, message: null };
     }
 
-    const collectorOptions = Object.assign({ filter, time }, collectorOptionsFromCaller);
+    // Determine the effective filter the caller wanted (may be provided in collectorOptions)
+    const effectiveFilter = (collectorOptionsFromCaller && collectorOptionsFromCaller.filter) || filter;
+
+    // Create a collector that accepts all interactions and handle unauthorized presses explicitly
+    const collectorOptions = Object.assign({ filter: () => true, time }, collectorOptionsFromCaller);
     const collector = message.createMessageComponentCollector(collectorOptions);
+
+    // When someone interacts, if they fail the original filter, send an explicit ephemeral notice
+    try {
+      collector.on('collect', async (i) => {
+        try {
+          let allowed = false;
+          try { allowed = !!effectiveFilter(i); } catch (e) { allowed = false; }
+          if (!allowed) {
+            try {
+              await safeReply(i, { content: 'These controls are reserved for the user who opened this view.', ephemeral: true });
+            } catch (e) { /* ignore reply failures */ }
+          }
+        } catch (_) { /* ignore */ }
+      });
+    } catch (e) { /* ignore attach errors */ }
+
     return { collector, message };
   } catch (err) {
     logger.error('createInteractionCollector failed', { error: err && (err.stack || err) });
