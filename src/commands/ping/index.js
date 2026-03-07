@@ -43,8 +43,9 @@ function buildPingPayload(interaction, customId, includeButton = true, footerTex
   }
   if (footer) container.addTextDisplayComponents(footer);
 
+  const comp = (container && typeof container.toJSON === 'function') ? container.toJSON() : container;
   return {
-    components: [container],
+    components: [comp],
     flags: MessageFlags.IsComponentsV2
   };
 }
