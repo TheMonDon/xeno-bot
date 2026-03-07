@@ -600,7 +600,7 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
   try {
     modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => []);
     milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => []);
-    xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => []);
+    xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => []);
   } catch (e) {
     // Silently fail on database errors
   }
@@ -623,7 +623,7 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
         if (refreshedHive) viewHive = refreshedHive;
         modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => modules);
         milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => milestones);
-        xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => xenos);
+        xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => xenos);
         let rjRefresh = await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly');
         resources = { royal_jelly: rjRefresh };
         await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: 'Refreshed hive data.', membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }) });
@@ -757,7 +757,7 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
         }
 
         viewHive = { ...viewHive, queen_xeno_id: queenId };
-        xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => xenos);
+        xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => xenos);
         await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `Assigned xenomorph #${queenId} as hive queen.`, membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }) });
         return;
       }
@@ -802,7 +802,7 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
               .update({ hive_id: viewHive.id });
           });
 
-        xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => xenos);
+        xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => xenos);
         await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, notice: `Added ${formatNumber(updatedCount || xenosToAdd.length)} xenomorph(s) to this hive.`, membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }) });
         return;
       }
@@ -938,7 +938,7 @@ module.exports = {
               try {
                 modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => []);
                 milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => []);
-                xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => []);
+                xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => []);
                 resources = { royal_jelly: await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly') };
               } catch (e) {}
 
@@ -950,7 +950,7 @@ module.exports = {
 
             // Handle create hive button
             let xenos = [];
-            try { xenos = await xenomorphModel.getXenosByOwner(userId); } catch (e) { xenos = []; }
+            try { xenos = await xenomorphModel.getXenosByOwner(userId, guildId); } catch (e) { xenos = []; }
             const hasEvolved = Array.isArray(xenos) && xenos.some(x => (x.role && x.role !== 'egg') || (x.stage && x.stage !== 'egg'));
             
             if (!hasEvolved) {
@@ -1025,7 +1025,7 @@ module.exports = {
       try {
         modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => []);
         milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => []);
-        xenos = await xenomorphModel.getXenosByOwner(String(userId)).catch(() => []);
+        xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => []);
       } catch (e) {
         // Silently fail on database errors
       }

@@ -260,7 +260,8 @@ module.exports = {
             role: stage,
             stage: stage,
             level: 1,
-            data: { grantedBy: interaction.user.id }
+            data: { grantedBy: interaction.user.id },
+            guildId: interaction.guildId
           });
         }
         

@@ -151,7 +151,7 @@ module.exports = {
     if (focusedOption.name === 'xeno_id') {
       // Get user's xenomorphs
       try {
-        const xenos = await xenoModel.getXenosByOwner(userId);
+        const xenos = await xenoModel.getXenosByOwner(userId, guildId);
 
         let activeEvolutionXenoIds = new Set();
         try {
@@ -369,7 +369,7 @@ module.exports = {
         }
 
         // Check xenomorph exists and belongs to sender
-        const xeno = await xenoModel.getXenoById(xenoId);
+        const xeno = await xenoModel.getByIdScoped(xenoId, guildId);
         if (!xeno) {
           await safeReply(interaction, { content: 'Xenomorph not found.', ephemeral: true }, { loggerName: 'command:gift' });
           return;

@@ -380,7 +380,7 @@ module.exports = {
 
       if (viewType === 'xenos') {
         try {
-          let rows = await xenoModel.getXenosByOwner(target.id);
+          let rows = await xenoModel.getXenosByOwner(target.id, guildId);
           
           // Get unique stages for filter options
           const uniqueStages = new Set();
