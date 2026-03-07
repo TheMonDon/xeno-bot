@@ -41,6 +41,16 @@ Date: 2026-03-07
 - **Why:** This prevents ambiguity where multiple pathways shared the generic `facehugger` label and ensures evolution requirements map to the correct pathway-specific stage.
 - **Rollback:** The migration includes a down-step to revert pathway-specific names back to the generic `facehugger` if needed.
 
+## v1.9.17 — UX: grouped evolve/autocomplete and clearer counts
+
+Date: 2026-03-07
+
+- **Improved:** `/evolve start` autocomplete and host selection now group items by stage/pathway and host type to reduce option clutter. Example label: `Facehugger • Pathway: standard (x20)` is now shown as `Facehugger • Pathway: standard (x20) [#123]` and the count is displayed as `(x20)` for clarity.
+- **Why:** Large inventories produced long autocomplete lists showing every individual ID. Grouping reduces noise and makes it easier to pick the right group.
+- **Behavior:** Each grouped option uses a single representative ID (the lowest ID in the group) as the option value so Discord accepts the numeric value. This keeps the command compatible while improving readability. If you prefer a follow-up selector to pick a specific ID from the group, we can add that as a later enhancement.
+- **Related:** Added robust pathway/role normalization so pathway-specific facehugger variants (e.g., `space_jockey_facehugger`) are matched even if the user types `space` or `spacejockey`.
+
+
 
 
 

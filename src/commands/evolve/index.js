@@ -27,6 +27,20 @@ const cmd = { name: 'evolve', description: 'Evolve your xenomorphs' };
 const EVOLVE_LIST_PAGE_SIZE = 5;
 const EVOLVE_CANCEL_PAGE_SIZE = 10;
 
+function normalizeKey(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+
+function findRequirement(evol, pathwayRaw, fromRaw) {
+  if (!evol || !evol.requirements) return null;
+  const pathKeys = Object.keys(evol.requirements || {});
+  const targetPathKey = pathKeys.find(k => normalizeKey(k) === normalizeKey(pathwayRaw)) || pathwayRaw;
+  const reqByPath = evol.requirements[targetPathKey] || {};
+  const fromKeys = Object.keys(reqByPath || {});
+  const foundKey = fromKeys.find(k => normalizeKey(k) === normalizeKey(fromRaw));
+  return foundKey ? reqByPath[foundKey] : null;
+}
+
 function getHostDisplay(hostType, cfgHosts, emojis) {
   const hostInfo = cfgHosts[hostType] || {};
   const display = hostInfo.display || hostType;
@@ -363,9 +377,8 @@ module.exports = {
           } else {
             const evol = require('../../../config/evolutions.json');
             const pathwayKey = String(xeno.pathway || 'standard');
-            const reqByPath = (evol && evol.requirements && evol.requirements[pathwayKey]) ? evol.requirements[pathwayKey] : {};
             const fromStage = String(xeno.role || xeno.stage || '');
-            const stepReq = reqByPath[fromStage] || null;
+            const stepReq = findRequirement(evol, pathwayKey, fromStage);
 
             if (!stepReq) {
               await respond({ components: buildEvolveView({ screen: 'result', message: `No evolution step is configured for stage ${fromStage} in pathway ${pathwayKey}.`, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
@@ -585,7 +598,7 @@ module.exports = {
             for (const x of list) {
               const path = String(x.pathway || 'standard');
               const from = String(x.role || x.stage || '');
-              const req = evol && evol.requirements && evol.requirements[path] ? evol.requirements[path][from] : null;
+              const req = findRequirement(evol, path, from);
               if (req && req.to) {
                 if (!busySet.has(String(x.id))) eligible.push(x);
               }
@@ -595,8 +608,24 @@ module.exports = {
             try { await interaction.respond([]); } catch (_) {}
             return;
           }
-          const items = eligible.slice(0, 25).map(x => ({ id: String(x.id), name: `${x.role || x.stage} [${x.id}] • Pathway: ${x.pathway || 'standard'}` }));
-          return autocomplete(interaction, items, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
+          // Group eligible xenos by `role|pathway` and present aggregated choices
+          const groups = new Map();
+          for (const x of eligible) {
+            const role = x.role || x.stage || 'unknown';
+            const pathway = x.pathway || 'standard';
+            const key = `${role}::${pathway}`;
+            const arr = groups.get(key) || { role, pathway, ids: [] };
+            arr.ids.push(Number(x.id));
+            groups.set(key, arr);
+          }
+          const grouped = Array.from(groups.values()).slice(0, 25).map(g => {
+            g.ids.sort((a, b) => a - b);
+            const rep = g.ids[0];
+            const count = g.ids.length;
+            const roleLabel = (evol && evol.roles && evol.roles[g.role] && evol.roles[g.role].display) ? evol.roles[g.role].display : g.role;
+            return { id: String(rep), name: `${roleLabel} • Pathway: ${g.pathway} (x${count}) [#${rep}]` };
+          });
+          return autocomplete(interaction, grouped, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
         } catch (e) { try { await interaction.respond([]); } catch (_) {} return; }
       }
 
@@ -611,7 +640,7 @@ module.exports = {
             if (xeno) {
               const path = String(xeno.pathway || 'standard');
               const from = String(xeno.role || xeno.stage || '');
-              const req = evol && evol.requirements && evol.requirements[path] ? evol.requirements[path][from] : null;
+              const req = findRequirement(evol, path, from);
               if (req && req.to) {
                 const roleCfg = evol && evol.roles && evol.roles[req.to] ? evol.roles[req.to] : null;
                 targets = [{ id: req.to, name: roleCfg && roleCfg.display ? `${req.to} — ${roleCfg.display}` : req.to }];
@@ -629,8 +658,22 @@ module.exports = {
       if (sub === 'start' && focusedName === 'host') {
         try {
           const rows = await hostModel.listHostsByOwner(String(userId));
-          const items = rows.slice(0, 25).map(r => ({ id: String(r.id), name: `${getHostDisplay(r.host_type, hostsCfg.hosts || {}, emojisCfg)} [${r.id}]` }));
-          return autocomplete(interaction, items, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
+          // Group hosts by host_type and present aggregated choices
+          const hostGroups = new Map();
+          for (const r of rows) {
+            const ht = String(r.host_type || 'unknown');
+            const arr = hostGroups.get(ht) || { host_type: ht, ids: [] };
+            arr.ids.push(Number(r.id));
+            hostGroups.set(ht, arr);
+          }
+          const hostItems = Array.from(hostGroups.values()).slice(0, 25).map(hg => {
+            hg.ids.sort((a, b) => a - b);
+            const rep = hg.ids[0];
+            const count = hg.ids.length;
+            const display = getHostDisplay(hg.host_type, hostsCfg.hosts || {}, emojisCfg);
+            return { id: String(rep), name: `${display} (x${count}) [#${rep}]` };
+          });
+          return autocomplete(interaction, hostItems, { map: it => ({ name: it.name, value: Number(it.id) }), max: 25 });
         } catch (e) { try { await interaction.respond([]); } catch (_) {} return; }
       }
 
