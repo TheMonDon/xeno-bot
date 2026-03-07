@@ -179,6 +179,18 @@ async function deleteHiveById(id) {
       logger.warn('Failed unassigning xenomorphs for deleted hive', { id, error: e && (e.stack || e) });
     }
 
+    // Remove any module and milestone progress tied to this hive
+    try {
+      await db.knex('hive_modules').where({ hive_id: id }).del();
+    } catch (e) {
+      logger.warn('Failed deleting hive modules for deleted hive', { id, error: e && (e.stack || e) });
+    }
+    try {
+      await db.knex('hive_milestones').where({ hive_id: id }).del();
+    } catch (e) {
+      logger.warn('Failed deleting hive milestones for deleted hive', { id, error: e && (e.stack || e) });
+    }
+
     const deleted = await db.knex('hives').where({ id }).del();
     logger.info('Deleted hive', { id, deleted });
     return deleted > 0;
@@ -204,6 +216,18 @@ async function deleteHiveByOwner(ownerDiscordId) {
         await db.knex('xenomorphs').whereIn('hive_id', hiveIds).update({ hive_id: null, updated_at: db.knex.fn.now() });
       } catch (e) {
         logger.warn('Failed unassigning xenomorphs for deleted owner hives', { ownerDiscordId, hiveIds, error: e && (e.stack || e) });
+      }
+
+      try {
+        await db.knex('hive_modules').whereIn('hive_id', hiveIds).del();
+      } catch (e) {
+        logger.warn('Failed deleting hive modules for owner deleted hives', { ownerDiscordId, hiveIds, error: e && (e.stack || e) });
+      }
+
+      try {
+        await db.knex('hive_milestones').whereIn('hive_id', hiveIds).del();
+      } catch (e) {
+        logger.warn('Failed deleting hive milestones for owner deleted hives', { ownerDiscordId, hiveIds, error: e && (e.stack || e) });
       }
     }
     if (_hiveHasOwnerColumn) {
