@@ -15,6 +15,7 @@
     "deploy:public": "BOT_PROFILE=public node deploy-commands.js",
 
     "deploy-commands": "node deploy-commands.js",
+    "update-topgg-commands": "node scripts/update-topgg-commands.js",
     "start:local": "NODE_ENV=development node src/index.js",
     "migrate:facehuggers:dry": "node scripts/migrate-facehuggers-to-xenos.js",
     "migrate:facehuggers": "node scripts/migrate-facehuggers-to-xenos.js --apply",

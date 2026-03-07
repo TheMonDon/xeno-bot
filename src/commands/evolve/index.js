@@ -231,6 +231,7 @@ function buildEvolveView({
             button
               .setLabel('Info')
               .setCustomId(`evolve-list-info:${x.id}`)
+              .setDisabled(!!expired)
           )
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(`${primary} [${x.id}]\nPath: ${pathway}`)
@@ -320,6 +321,7 @@ function buildEvolveView({
             button
               .setLabel('Cancel')
               .setCustomId(`evolve-cancel-job:${j.id}`)
+              .setDisabled(!!expired)
           )
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(line)
@@ -545,6 +547,9 @@ module.exports = {
       let currentListPage = 0;
       let currentListTypeFilter = 'all';
       let currentCancelPage = 0;
+      // state for modal search matches pagination
+      let matchResults = null;
+      let matchPage = 0;
 
       collector.on('collect', async i => {
         try {
@@ -590,8 +595,31 @@ module.exports = {
                       try { await msg.edit({ components: buildEvolveView({ screen: 'list', xenos: list, listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client }) }); } catch (_) {}
                       await modalInteraction.followUp({ content: `Filtered to type: ${matches[0]}`, ephemeral: true });
                     } else {
-                      const sample = matches.slice(0, 10).map((m, idx) => `${idx + 1}. ${m}`).join('\n');
-                      await modalInteraction.followUp({ content: `Found ${matches.length} matches. First results:\n${sample}\nPlease refine your search or pick one exact type from the list.`, ephemeral: true });
+                      // Present paginated select on the main view so user can pick from matches
+                      matchResults = matches;
+                      matchPage = 0;
+                      const pageSize = 25;
+                      const pageItems = matchResults.slice(matchPage * pageSize, (matchPage + 1) * pageSize);
+                      const options = pageItems.map(v => ({ label: v, value: v }));
+                      const baseComponents = buildEvolveView({ screen: 'list', xenos: allXenos, listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client });
+                      const selectRow = new ActionRowBuilder().addComponents(
+                        new StringSelectMenuBuilder()
+                          .setCustomId('evolve-type-search-select')
+                          .setPlaceholder('Pick a type from search results')
+                          .addOptions(...options)
+                      );
+                      const prevDisabled = matchPage === 0;
+                      const nextDisabled = (matchPage + 1) * pageSize >= matchResults.length;
+                      const navRow = new ActionRowBuilder().addComponents(
+                        new SecondaryButtonBuilder().setCustomId('evolve-type-search-prev').setLabel('Prev').setDisabled(prevDisabled),
+                        new SecondaryButtonBuilder().setCustomId('evolve-type-search-next').setLabel('Next').setDisabled(nextDisabled)
+                      );
+                      try {
+                        await msg.edit({ components: [...baseComponents, selectRow, navRow] });
+                        await modalInteraction.followUp({ content: `Found ${matchResults.length} matches. Use the select to pick one.`, ephemeral: true });
+                      } catch (e) {
+                        await modalInteraction.followUp({ content: `Failed to present matches: ${e && (e.message || e)}`, ephemeral: true });
+                      }
                     }
                   } catch (e) {
                     try { await modalInteraction.reply({ content: `Search failed: ${e && (e.message || e)}`, ephemeral: true }); } catch (_) {}
@@ -616,6 +644,52 @@ module.exports = {
             const selected = String(i.customId).split(':')[1];
             const list = await xenoModel.listByOwner(userIdInner);
             await i.update({ components: buildEvolveView({ screen: 'info', xenos: list, selectedXenoId: selected, client: interaction.client }) });
+            return;
+          }
+
+          // handlers for paginated match select presented by modal search
+          if (i.customId === 'evolve-type-search-select') {
+            const chosen = i.values && i.values[0] ? String(i.values[0]) : null;
+            if (chosen) {
+              // apply filter and clear match state
+              currentListTypeFilter = chosen;
+              currentListPage = 0;
+              matchResults = null;
+              matchPage = 0;
+              const list = await xenoModel.listByOwner(userIdInner);
+              try { await i.update({ components: buildEvolveView({ screen: 'list', xenos: list, listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client }) }); } catch (_) {}
+            } else {
+              try { await i.update({ components: buildEvolveView({ screen: 'list', xenos: await xenoModel.listByOwner(userIdInner), listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client }) }); } catch (_) {}
+            }
+            return;
+          }
+
+          if (i.customId === 'evolve-type-search-prev' || i.customId === 'evolve-type-search-next') {
+            if (!matchResults) {
+              try { await i.update({ components: buildEvolveView({ screen: 'list', xenos: await xenoModel.listByOwner(userIdInner), listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client }) }); } catch (_) {}
+              return;
+            }
+            const pageSize = 25;
+            const isPrev = i.customId === 'evolve-type-search-prev';
+            matchPage = isPrev ? Math.max(0, matchPage - 1) : matchPage + 1;
+            const pageItems = matchResults.slice(matchPage * pageSize, (matchPage + 1) * pageSize);
+            const options = pageItems.map(v => ({ label: v, value: v }));
+            const selectRow = new ActionRowBuilder().addComponents(
+              new StringSelectMenuBuilder()
+                .setCustomId('evolve-type-search-select')
+                .setPlaceholder('Pick a type from search results')
+                .addOptions(...options)
+            );
+            const prevDisabled = matchPage === 0;
+            const nextDisabled = (matchPage + 1) * pageSize >= matchResults.length;
+            const navRow = new ActionRowBuilder().addComponents(
+              new SecondaryButtonBuilder().setCustomId('evolve-type-search-prev').setLabel('Prev').setDisabled(prevDisabled),
+              new SecondaryButtonBuilder().setCustomId('evolve-type-search-next').setLabel('Next').setDisabled(nextDisabled)
+            );
+            try {
+              const baseComponents = buildEvolveView({ screen: 'list', xenos: await xenoModel.listByOwner(userIdInner), listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client });
+              await i.update({ components: [...baseComponents, selectRow, navRow] });
+            } catch (_) {}
             return;
           }
 
