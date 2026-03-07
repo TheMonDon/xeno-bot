@@ -7,7 +7,7 @@
     "rarity": 1,
     "price": 10000,
     "sell": 5,
-    "hatch": 60,
+    "hatch": 600,
     "next_stage": "facehugger"
   },
   {
@@ -84,7 +84,7 @@
     "rarity": 7,
     "price": 70000,
     "sell": 35,
-    "hatch": 420,
+    "hatch": 21600,
     "next_stage": "bloodburster"
   },
   {
@@ -95,7 +95,7 @@
     "rarity": 8,
     "price": 80000,
     "sell": 4,
-    "hatch": 480,
+    "hatch": 43200,
     "next_stage": "hammerpede"
   },
   {
@@ -216,7 +216,7 @@
     "rarity": 10,
     "price": 100000,
     "sell": 5,
-    "hatch": 600,
+    "hatch": 604800,
     "next_stage": "facehugger"
   },
   {
