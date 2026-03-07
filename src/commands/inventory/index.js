@@ -286,7 +286,12 @@ module.exports = {
 
     // Build initial view: default to eggs
     const items = user?.data?.guilds?.[guildId]?.items || {};
-    const currencies = user?.data?.guilds?.[guildId]?.currency || {};
+    // Merge per-guild currency with global credits (credits are stored globally under user.data.currency)
+    const guildCurrencies = user?.data?.guilds?.[guildId]?.currency || {};
+    const currencies = Object.assign({}, guildCurrencies);
+    if (user?.data?.currency && typeof user.data.currency.credits !== 'undefined') {
+      currencies.credits = Number(user.data.currency.credits || 0);
+    }
     const getFieldsForType = async (viewType, sortBy = 'name_asc', filterBy = 'all') => {
       const out = [];
       const filters = [];
