@@ -74,7 +74,7 @@
     "price": 80000,
     "sell": 40,
     "hatch": 480,
-    "next_stage": "king_facehugger"
+    "next_stage": "predalien_facehugger"
   },
   {
     "id": "neomorph",
