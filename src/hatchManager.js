@@ -158,7 +158,7 @@ async function collectHatch(discordId, guildId, hatchId) {
   }
   // Create xenomorph record with the next_stage
   try {
-    await xenoModel.createXeno(discordId, { pathway, role: nextStage, stage: nextStage, data: { fromEgg: row.egg_type } });
+    await xenoModel.createXeno(discordId, { pathway, role: nextStage, stage: nextStage, data: { fromEgg: row.egg_type }, guildId });
   } catch (e) {
     logger.warn('Failed creating xenomorph in collectHatch', { error: e && e.message });
     // fallback to adding as an item if xeno creation fails

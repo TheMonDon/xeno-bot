@@ -11,7 +11,9 @@ async function getById(id) {
 }
 
 async function getByIdScoped(id, guildId = null) {
-  if (!guildId) return getById(id);
+  // Require a guildId for scoped lookups to ensure xenomorphs are accessed only within a server.
+  // Returning null when no guildId is provided prevents accidental cross-server visibility.
+  if (!guildId) return null;
   // Accept xenomorphs that either have an explicit guild_id matching the guild,
   // or are attached to a hive whose guild_id matches. This preserves compatibility
   // with older schemas where xenos may carry guild_id or be linked via hive_id.
