@@ -329,7 +329,8 @@ module.exports = {
         for (let i = 0; i < amount; i++) {
           await hostModel.addHostForUser(String(target.id), hostType, {
             grantedBy: interaction.user.id,
-            source: 'devgive'
+            source: 'devgive',
+            guild_id: interaction.guildId
           });
         }
 

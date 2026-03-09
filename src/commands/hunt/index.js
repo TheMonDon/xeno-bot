@@ -360,7 +360,7 @@ async function performHunt(interaction, client) {
 
     const hostDisplay = getHostDisplay(chosenKey, cfgHosts, emojisCfg);
     const flavor = getRandomFlavor(chosenKey, huntFlavorsCfg);
-    const host = await hostModel.addHostForUser(userId, chosenKey);
+    const host = await hostModel.addHostForUser(userId, chosenKey, { guild_id: guildId });
 
     // Get emoji and construct image URL
     const hostInfo = cfgHosts[chosenKey] || {};

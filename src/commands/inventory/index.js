@@ -339,9 +339,29 @@ module.exports = {
       }
 
       if (viewType === 'hosts') {
-        try {
+          try {
           let rows = await hostModel.listHostsByOwner(target.id);
-          
+          // Only include hosts that belong to this guild (hosts are global by default,
+          // but newer records may include `data.guild_id`). For legacy records that
+          // lack a `guild_id` in their JSON `data`, treat them as local and include
+          // them so users don't lose visibility of previously-hunted hosts.
+          if (guildId) {
+            rows = (rows || []).filter(r => {
+              try {
+                const d = (r.data && typeof r.data === 'object') ? r.data : (r.data ? JSON.parse(r.data) : null);
+                const hostGuild = d && (d.guild_id || d.guildId || d.guild) ? String(d.guild_id || d.guildId || d.guild) : null;
+                // Include legacy entries with no guild_id, and entries matching this guild
+                if (!hostGuild) return true;
+                return String(hostGuild) === String(guildId);
+              } catch (_) {
+                // If parsing fails, include the row conservatively
+                return true;
+              }
+            });
+          } else {
+            rows = [];
+          }
+
           // Get unique host types for filter options
           const uniqueTypes = new Set();
           for (const r of rows) {
