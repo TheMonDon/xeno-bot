@@ -413,7 +413,7 @@ module.exports = {
       const userId = String(interaction.user.id);
       const guildId = interaction.guildId;
       const hydrated = await hydrateLegacyFacehuggers(userId, interaction.guildId);
-      const loadXenos = async () => await xenoModel.listByOwner(userId);
+      const loadXenos = async () => await xenoModel.listByOwner(userId, guildId);
       const loadJobs = async (ownerId) => await db.knex('evolution_queue as q')
         .leftJoin('xenomorphs as x', 'q.xeno_id', 'x.id')
         .select('q.*', 'x.role as xeno_role', 'x.stage as xeno_stage')
@@ -428,7 +428,7 @@ module.exports = {
         const xenoId = interaction.options.getInteger('xenomorph');
         const hostId = interaction.options.getInteger('host');
         const target = String(interaction.options.getString('next_stage') || '').trim().toLowerCase();
-        const xeno = await xenoModel.getById(xenoId);
+        const xeno = await xenoModel.getByIdScoped(xenoId, guildId);
         if (!xeno) {
           await respond({ components: buildEvolveView({ screen: 'result', message: 'Xenomorph not found.', client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
         } else if (String(xeno.owner_id) !== userId) {
@@ -902,7 +902,7 @@ module.exports = {
       // START / INFO: if numeric focused -> suggest xeno ids
       if (sub === 'start' && (focusedName === 'xenomorph' || (!focusedName && isNumeric))) {
         try {
-          const list = await xenoModel.listByOwner(String(userId));
+          const list = await xenoModel.listByOwner(String(userId), interaction.guildId);
           if (!list || list.length === 0) return autocomplete(interaction, [], { map: it => ({ name: `${it.role || it.stage} [${it.id}]`, value: it.id }), max: 25 });
           // Filter to xenomorphs that have a configured next evolution step and are not already evolving
           const evol = require('../../../config/evolutions.json');
@@ -953,7 +953,7 @@ module.exports = {
           const xenoId = interaction.options.getInteger('xenomorph');
           let targets = [];
           if (xenoId) {
-            const xeno = await xenoModel.getById(xenoId);
+            const xeno = await xenoModel.getByIdScoped(xenoId, interaction.guildId);
             if (xeno) {
               const path = String(xeno.pathway || 'standard');
               const from = String(xeno.role || xeno.stage || '');
