@@ -2,7 +2,7 @@
   {
     "id": "classic",
     "name": "Classic Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:standard_egg:1480388706270580837>",
     "weight": 80,
     "rarity": 1,
     "price": 10000,
@@ -13,7 +13,7 @@
   {
     "id": "royal",
     "name": "Royal Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:royal_egg:1480388704899170424>",
     "weight": 1,
     "rarity": 6,
     "price": 60000,
@@ -24,7 +24,7 @@
   {
     "id": "queen",
     "name": "Queen Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:royal_egg:1480388704899170424>",
     "weight": 0.5,
     "rarity": 7,
     "price": 70000,
@@ -79,7 +79,7 @@
   {
     "id": "neomorph",
     "name": "Neomorph Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:pathogen_egg:1480388703582158930>",
     "weight": 0.1,
     "rarity": 7,
     "price": 70000,
@@ -90,7 +90,7 @@
   {
     "id": "deacon",
     "name": "Deacon Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:pathogen_egg:1480388703582158930>",
     "weight": 0.1,
     "rarity": 8,
     "price": 80000,
@@ -101,7 +101,7 @@
   {
     "id": "trilobite",
     "name": "Trilobite Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:pathogen_egg:1480388703582158930>",
     "weight": 0.1,
     "rarity": 7,
     "price": 70000,
@@ -112,7 +112,7 @@
   {
     "id": "belugamorph",
     "name": "Belugamorph Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:pathogen_egg:1480388703582158930>",
     "weight": 0.1,
     "rarity": 8,
     "price": 80000,
@@ -233,7 +233,7 @@
   {
     "id": "weyland",
     "name": "Weyland Egg",
-    "emoji": "<:egg:1476511857958457406>",
+    "emoji": "<:weyland_egg:1480388707419951270>",
     "weight": 0.25,
     "rarity": 10,
     "price": 100000,
