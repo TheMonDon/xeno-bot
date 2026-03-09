@@ -123,11 +123,13 @@ function buildEggsListPage({ pageIdx = 0, hatches = [], client = null, showColle
   );
 
   // Action Row (Stats, Hatch)
-  const actionRow = new ActionRowBuilder()
-    .addComponents(
-      new PrimaryButtonBuilder().setCustomId('eggs-view-stats').setLabel('Stats'),
-      new PrimaryButtonBuilder().setCustomId('eggs-hatch-egg').setLabel('Hatch Egg')
-    );
+  const now = Date.now();
+  const anyReadyOnPage = (page || []).some(h => !h.collected && (Number(h.finishes_at) || 0) <= now);
+  const actionRow = new ActionRowBuilder().addComponents(
+    new PrimaryButtonBuilder().setCustomId('eggs-view-stats').setLabel('Stats'),
+    new PrimaryButtonBuilder().setCustomId('eggs-hatch-egg').setLabel('Hatch Egg'),
+    new PrimaryButtonBuilder().setCustomId('eggs-collect-all').setLabel('Collect All').setDisabled(!anyReadyOnPage)
+  );
   container.addActionRowComponents(actionRow);
 
   return [container];
@@ -377,6 +379,21 @@ module.exports = {
             return;
           }
 
+          // Collect all ready hatches on the current list (page-aware)
+          if (i.customId === 'eggs-collect-all') {
+            const now = Date.now();
+            const ready = (rows || []).filter(r => !r.collected && (Number(r.finishes_at) || 0) <= now);
+            for (const r of ready) {
+              try {
+                await hatchManager.collectHatch(discordId, guildId, r.id);
+              } catch (_) {}
+              const idx = rows.findIndex(rr => rr.id === r.id);
+              if (idx !== -1) rows[idx].collected = true;
+            }
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client, showCollected: true }), flags: MessageFlags.IsComponentsV2 });
+            return;
+          }
+
           if (i.customId === 'eggs-view-stats') {
             await i.update({ components: buildEggsStatsPage({ hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
             return;
@@ -480,6 +497,44 @@ module.exports = {
                   }
 
                   // Update display with the collected hatch shown
+                  await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client, showCollected: true }), flags: MessageFlags.IsComponentsV2 });
+                  return;
+                }
+                // Collect all ready hatches on the current list (page-aware)
+                if (i.customId === 'eggs-collect-all') {
+                  const now = Date.now();
+                  const ready = (rows || []).filter(r => !r.collected && (Number(r.finishes_at) || 0) <= now);
+                  for (const r of ready) {
+                    try { await hatchManager.collectHatch(discordId, guildId, r.id); } catch (_) {}
+                    const idx = rows.findIndex(rr => rr.id === r.id);
+                    if (idx !== -1) rows[idx].collected = true;
+                  }
+                  await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client, showCollected: true }), flags: MessageFlags.IsComponentsV2 });
+                  return;
+                }
+
+                // Collect all ready hatches on the current list (page-aware)
+                if (i.customId === 'eggs-collect-all') {
+                  const now = Date.now();
+                  const ready = (rows || []).filter(r => !r.collected && (Number(r.finishes_at) || 0) <= now);
+                  for (const r of ready) {
+                    try { await hatchManager.collectHatch(discordId, guildId, r.id); } catch (_) {}
+                    const idx = rows.findIndex(rr => rr.id === r.id);
+                    if (idx !== -1) rows[idx].collected = true;
+                  }
+                  await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client, showCollected: true }), flags: MessageFlags.IsComponentsV2 });
+                  return;
+                }
+
+                // Collect all ready hatches on the current list (page-aware)
+                if (i.customId === 'eggs-collect-all') {
+                  const now = Date.now();
+                  const ready = (rows || []).filter(r => !r.collected && (Number(r.finishes_at) || 0) <= now);
+                  for (const r of ready) {
+                    try { await hatchManager.collectHatch(discordId, guildId, r.id); } catch (_) {}
+                    const idx = rows.findIndex(rr => rr.id === r.id);
+                    if (idx !== -1) rows[idx].collected = true;
+                  }
                   await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client, showCollected: true }), flags: MessageFlags.IsComponentsV2 });
                   return;
                 }
