@@ -4,6 +4,8 @@ const {
   SecondaryButtonBuilder,
   PrimaryButtonBuilder,
   DangerButtonBuilder,
+  StringSelectMenuBuilder,
+  StringSelectMenuOptionBuilder
 } = require('@discordjs/builders');
 const {
   ContainerBuilder,
@@ -65,7 +67,7 @@ function getHostEmojiUrl(hostType, cfgHosts = {}, emojis = {}) {
   return null;
 }
 
-function buildHostListPage({ pageIdx = 0, rows = [], expired = false, cfgHosts = {}, emojis = {}, client = null }) {
+function buildHostListPage({ pageIdx = 0, rows = [], expired = false, cfgHosts = {}, emojis = {}, client = null, currentSort = null, currentFilter = null, availableFilters = [] }) {
   const totalPages = Math.ceil(rows.length / HOSTS_PER_PAGE);
   const safePageIdx = Math.max(0, Math.min(pageIdx, totalPages - 1));
   const start = safePageIdx * HOSTS_PER_PAGE;
@@ -114,6 +116,39 @@ function buildHostListPage({ pageIdx = 0, rows = [], expired = false, cfgHosts =
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
+
+  // Sorting / Filter row (show before pagination)
+  const sortRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder()
+      .setCustomId('hunt-sort')
+      .setPlaceholder('Sort by')
+      .addOptions(
+        new StringSelectMenuOptionBuilder().setLabel('Newest First').setValue('date_desc').setDefault(currentSort === 'date_desc'),
+        new StringSelectMenuOptionBuilder().setLabel('Oldest First').setValue('date_asc').setDefault(currentSort === 'date_asc'),
+        new StringSelectMenuOptionBuilder().setLabel('Type (A-Z)').setValue('type_asc').setDefault(currentSort === 'type_asc'),
+        new StringSelectMenuOptionBuilder().setLabel('Type (Z-A)').setValue('type_desc').setDefault(currentSort === 'type_desc'),
+        new StringSelectMenuOptionBuilder().setLabel('ID (Low to High)').setValue('id_asc').setDefault(currentSort === 'id_asc'),
+        new StringSelectMenuOptionBuilder().setLabel('ID (High to Low)').setValue('id_desc').setDefault(currentSort === 'id_desc')
+      )
+  );
+  container.addActionRowComponents(sortRow);
+
+  if (availableFilters && availableFilters.length > 0) {
+    const filterOptions = [
+      new StringSelectMenuOptionBuilder().setLabel('All Types').setValue('all').setDefault(!currentFilter || currentFilter === 'all')
+    ];
+    for (const f of availableFilters) {
+      filterOptions.push(new StringSelectMenuOptionBuilder().setLabel(f.label).setValue(f.value).setDefault(currentFilter === f.value));
+    }
+    container.addActionRowComponents(
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId('hunt-filter')
+          .setPlaceholder('Filter by type')
+          .addOptions(...filterOptions)
+      )
+    );
+  }
 
   // Pagination + Stats Row
   const totalHunts = rows.length;
@@ -222,11 +257,15 @@ module.exports = {
     const cfgHosts = (hostsCfg && hostsCfg.hosts) || {};
 
     try {
-      let rows = await hostModel.listHostsByOwner(userId);
+      const allRows = await hostModel.listHostsByOwner(userId) || [];
+      let rows = allRows.slice();
+      let currentSort = null;
+      let currentFilter = null;
+      const availableFilters = Array.from(new Set((allRows || []).map(r => r.host_type))).map(t => ({ label: getHostDisplay(t, cfgHosts, emojisCfg), value: t }));
 
       await safeReply(
         interaction,
-        { components: buildHostListPage({ pageIdx: 0, rows, cfgHosts, emojis: emojisCfg, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true },
+        { components: buildHostListPage({ pageIdx: 0, rows, cfgHosts, emojis: emojisCfg, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2, ephemeral: true },
         { loggerName: 'command:hunt-list' }
       );
 
@@ -247,18 +286,18 @@ module.exports = {
           // Navigation
           if (i.customId === 'hunt-prev-page') {
             currentPage = Math.max(0, currentPage - 1);
-            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client }) });
+            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client, currentSort, currentFilter, availableFilters }) });
             return;
           }
           if (i.customId === 'hunt-next-page') {
             const totalPages = Math.ceil(rows.length / HOSTS_PER_PAGE);
             currentPage = Math.min(totalPages - 1, currentPage + 1);
-            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client }) });
+            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client, currentSort, currentFilter, availableFilters }) });
             return;
           }
 
           // Delete single host
-          if (i.customId.startsWith('hunt-delete-one:')) {
+            if (i.customId.startsWith('hunt-delete-one:')) {
             const hostId = Number(i.customId.split(':')[1]);
             await hostModel.deleteHostsById([hostId]);
             rows = rows.filter(r => r.id !== hostId);
@@ -269,8 +308,60 @@ module.exports = {
               currentPage = totalPages - 1;
             }
             
-            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client }) });
+              // remove from allRows as well
+              const idx = allRows.findIndex(ar => ar.id === hostId);
+              if (idx !== -1) allRows.splice(idx, 1);
+            
+              await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client, currentSort, currentFilter, availableFilters }) });
             currentViewMode = 'list';
+            return;
+          }
+
+          // Sorting
+          if (i.customId === 'hunt-sort') {
+            try {
+              currentSort = i.values && i.values[0];
+              const filtered = (!currentFilter || currentFilter === 'all') ? allRows.slice() : allRows.filter(r => r.host_type === currentFilter);
+              rows = filtered.slice();
+              if (currentSort) {
+                rows.sort((a, b) => {
+                  if (currentSort === 'date_desc') return (b.created_at || 0) - (a.created_at || 0);
+                  if (currentSort === 'date_asc') return (a.created_at || 0) - (b.created_at || 0);
+                  if (currentSort === 'type_asc') return String(a.host_type || '').localeCompare(String(b.host_type || ''));
+                  if (currentSort === 'type_desc') return String(b.host_type || '').localeCompare(String(a.host_type || ''));
+                  if (currentSort === 'id_asc') return (a.id || 0) - (b.id || 0);
+                  if (currentSort === 'id_desc') return (b.id || 0) - (a.id || 0);
+                  return 0;
+                });
+              }
+            } catch (err) {
+              try { await safeReply(i, { content: `Failed to sort hosts: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hunt-list' }); } catch (_) {}
+            }
+            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client, currentSort, currentFilter, availableFilters }) });
+            return;
+          }
+
+          // Filter
+          if (i.customId === 'hunt-filter') {
+            try {
+              currentFilter = i.values && i.values[0];
+              const filtered = (!currentFilter || currentFilter === 'all') ? allRows.slice() : allRows.filter(r => r.host_type === currentFilter);
+              rows = filtered.slice();
+              if (currentSort) {
+                rows.sort((a, b) => {
+                  if (currentSort === 'date_desc') return (b.created_at || 0) - (a.created_at || 0);
+                  if (currentSort === 'date_asc') return (a.created_at || 0) - (b.created_at || 0);
+                  if (currentSort === 'type_asc') return String(a.host_type || '').localeCompare(String(b.host_type || ''));
+                  if (currentSort === 'type_desc') return String(b.host_type || '').localeCompare(String(a.host_type || ''));
+                  if (currentSort === 'id_asc') return (a.id || 0) - (b.id || 0);
+                  if (currentSort === 'id_desc') return (b.id || 0) - (a.id || 0);
+                  return 0;
+                });
+              }
+            } catch (err) {
+              try { await safeReply(i, { content: `Failed to filter hosts: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hunt-list' }); } catch (_) {}
+            }
+            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client, currentSort, currentFilter, availableFilters }) });
             return;
           }
 
@@ -284,13 +375,18 @@ module.exports = {
               if (ids.length) {
                 await hostModel.deleteHostsById(ids);
                 rows = rows.filter(r => !ids.includes(r.id));
+                // remove from allRows as well
+                for (const id of ids) {
+                  const idx = allRows.findIndex(ar => ar.id === id);
+                  if (idx !== -1) allRows.splice(idx, 1);
+                }
                 const totalPages = Math.ceil(rows.length / HOSTS_PER_PAGE);
                 if (currentPage >= totalPages && currentPage > 0) currentPage = totalPages - 1;
               }
             } catch (err) {
               try { await safeReply(i, { content: `Failed releasing hosts: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hunt-list' }); } catch (_) {}
             }
-            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client }) });
+            await i.update({ components: buildHostListPage({ pageIdx: currentPage, rows, cfgHosts, emojis: emojisCfg, client: interaction.client, currentSort, currentFilter, availableFilters }) });
             currentViewMode = 'list';
             return;
           }

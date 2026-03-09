@@ -30,190 +30,56 @@ const HATCHES_PER_PAGE = 4;
 function getEggDisplay(eggType) {
   const eggMeta = eggTypes.find(e => e.id === eggType);
   if (!eggMeta) return eggType;
-  const emoji = eggMeta.emoji || '';
-  const name = eggMeta.name || eggType;
-  return emoji ? `${emoji} ${name}` : name;
+  return `${eggMeta.emoji || ''} ${eggMeta.name}`;
 }
 
 function getRarityBadge(rarity) {
-  const numRarity = Number(rarity) || 1;
-  const rarityConfig = rarities.find(r => numRarity >= r.minRarity && numRarity <= r.maxRarity);
-  if (!rarityConfig) return '';
-  const emojiKey = rarityConfig.emoji;
-  return emojis[emojiKey] || '';
+  const badges = {
+    'common': '⬜ Common',
+    'rare': '🟦 Rare',
+    'very_rare': '🟪 Very Rare'
+  };
+  return badges[rarity] || rarity;
 }
 
-function getVisibleHatches(hatches = []) {
-  return (Array.isArray(hatches) ? hatches : []).filter(h => !h.collected);
-}
-
-function buildEggsListPage({ pageIdx = 0, hatches = [], client = null, showCollected = false }) {
-  const activeHatches = showCollected ? (Array.isArray(hatches) ? hatches : []) : getVisibleHatches(hatches);
-
-  const pagination = getPaginationState({
-    items: activeHatches,
-    pageIdx,
-    pageSize: HATCHES_PER_PAGE
-  });
-  const page = pagination.pageItems;
-
-  const container = new ContainerBuilder();
-  addV2TitleWithBotThumbnail({ container, title: 'Active Hatches', client });
-
-  if (!page || page.length === 0) {
-    if (activeHatches.length === 0) {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('You have no active hatches.'));
-    } else {
-      container.addTextDisplayComponents(new TextDisplayBuilder().setContent('No hatches on this page.'));
-    }
-  } else {
-    const now = Date.now();
-    for (const hatch of page) {
-      const finishes = Number(hatch.finishes_at) || 0;
-      const ready = finishes <= now;
-      const collected = hatch.collected;
-      const eggName = getEggDisplay(hatch.egg_type);
-      
-      // Get rarity badge
-      const eggMeta = eggTypes.find(e => e.id === hatch.egg_type);
-      const rarity = eggMeta ? eggMeta.rarity : 1;
-      const badge = getRarityBadge(rarity);
-      
-      let statusLine;
-      if (collected) {
-        statusLine = 'Collected: ✅';
-      } else if (ready) {
-        const hatched = Number(hatch.finishes_at) || Number(hatch.started_at) || Date.now();
-        statusLine = `Hatched: <t:${Math.floor(hatched / 1000)}:R>`;
-      } else {
-        statusLine = `Hatching: <t:${Math.floor(finishes / 1000)}:R>`;
-      }
-      
-      const section = new SectionBuilder()
-        .setSuccessButtonAccessory((button) =>
-          button
-            .setLabel(collected ? 'Collected' : 'Collect')
-            .setCustomId(`eggs-collect-one:${hatch.id}:${pagination.safePageIdx}`)
-            .setDisabled(!ready || collected)
-        )
-        .addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(`**${eggName}** • ${badge}\nID: ${hatch.id}\n${statusLine}`)
-        );
-      container.addSectionComponents(section);
-    }
-  }
-
-  // Separator
-  container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-  );
-
-  // Pagination Row
-  container.addActionRowComponents(
-    buildPaginationRow({
-      prefix: 'eggs',
-      pageIdx: pagination.safePageIdx,
-      totalPages: pagination.totalPages,
-      totalItems: pagination.totalItems,
-      prevLabel: 'Prev',
-      nextLabel: 'Next',
-      totalLabel: 'Total',
-      showPageInfo: true
-    })
-  );
-
-  // Action Row (Stats, Hatch)
-  const now = Date.now();
-  const anyReadyOnPage = (page || []).some(h => !h.collected && (Number(h.finishes_at) || 0) <= now);
-  const actionRow = new ActionRowBuilder().addComponents(
-    new PrimaryButtonBuilder().setCustomId('eggs-view-stats').setLabel('Stats'),
-    new PrimaryButtonBuilder().setCustomId('eggs-hatch-egg').setLabel('Hatch Egg'),
-    new PrimaryButtonBuilder().setCustomId('eggs-collect-all').setLabel('Collect All').setDisabled(!anyReadyOnPage)
-  );
-  container.addActionRowComponents(actionRow);
-
-  return [container];
+function getVisibleHatches(rows = [], showCollected = false) {
+  if (showCollected) return rows.slice();
+  return (rows || []).filter(r => !r.collected);
 }
 
 function buildEggsResultPage(content = '') {
   const container = new ContainerBuilder();
-  container.addTextDisplayComponents(new TextDisplayBuilder().setContent('## 🥚 Result'));
-  if (content) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent(content));
-  }
-  
-  // Separator
+  addV2TitleWithBotThumbnail({ container, title: 'Eggs', client: null });
+  container.addTextDisplayComponents(new TextDisplayBuilder().setContent(String(content || '')));
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
-  
-  // View List button
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
-      new PrimaryButtonBuilder().setCustomId('eggs-view-list').setLabel('View List')
+      new SecondaryButtonBuilder().setCustomId('eggs-back-to-list').setLabel('Back to List')
     )
   );
-  
   return [container];
 }
 
 function buildEggsHatchPage({ userEggs = {}, client = null }) {
   const container = new ContainerBuilder();
-  addV2TitleWithBotThumbnail({ container, title: 'Hatch an Egg', client });
+  addV2TitleWithBotThumbnail({ container, title: 'Hatch Egg', client });
 
-  // Get eggs user has with quantity > 0
-  const availableEggs = Object.entries(userEggs)
-    .map(([id, qty]) => ({ id, qty: Number(qty) }))
-    .filter(e => e.qty > 0);
+  const options = eggTypes.map(e => {
+    const qty = Number(userEggs?.[e.id] || 0);
+    return new StringSelectMenuOptionBuilder().setLabel(`${e.name} (${qty})`).setValue(e.id);
+  });
 
-  if (availableEggs.length === 0) {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('You don\'t have any eggs to hatch. Collect some eggs first!'));
-  } else {
-    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('Select an egg to hatch from the dropdown below:'));
-    
-    // Create select menu with egg options
-    const options = availableEggs.slice(0, 25).map(egg => {
-      const eggMeta = eggTypes.find(e => e.id === egg.id);
-      const name = eggMeta ? eggMeta.name : egg.id;
-      const emoji = eggMeta?.emoji;
-      const hatchTime = eggMeta ? Number(eggMeta.hatch || 60) : 60;
-      const label = `${name} (${egg.qty}) - ${hatchTime}s`;
-      
-      const option = new StringSelectMenuOptionBuilder()
-        .setLabel(label)
-        .setValue(egg.id);
-      
-      if (emoji) {
-        try {
-          // Try to parse custom emoji <:name:id> or <a:name:id>
-          const match = emoji.match(/<a?:([^:]+):(\d+)>/);
-          if (match) {
-            option.setEmoji({ id: match[2], name: match[1] });
-          }
-        } catch (e) {
-          // Skip emoji if parsing fails
-        }
-      }
-      
-      return option;
-    });
+  const selectRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder().setCustomId('eggs-select-hatch').setPlaceholder('Choose egg to hatch').setOptions(options.slice(0, 25))
+  );
+  container.addActionRowComponents(selectRow);
 
-    container.addActionRowComponents(
-      new ActionRowBuilder().addComponents(
-        new StringSelectMenuBuilder()
-          .setCustomId('eggs-select-hatch')
-          .setPlaceholder('Choose an egg to hatch')
-          .addOptions(options)
-      )
-    );
-  }
-
-  // Separator
   container.addSeparatorComponents(
     new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
   );
 
-  // Back button
   container.addActionRowComponents(
     new ActionRowBuilder().addComponents(
       new SecondaryButtonBuilder().setCustomId('eggs-back-to-list').setLabel('Back to List')
@@ -222,6 +88,66 @@ function buildEggsHatchPage({ userEggs = {}, client = null }) {
 
   return [container];
 }
+
+function buildEggsListPage({ pageIdx = 0, hatches = [], client = null, showCollected = false, currentSort = null, currentFilter = null, availableFilters = [] }) {
+  const totalPages = Math.max(1, Math.ceil(getVisibleHatches(hatches, showCollected).length / HATCHES_PER_PAGE));
+  const safePageIdx = Math.max(0, Math.min(pageIdx, totalPages - 1));
+  const start = safePageIdx * HATCHES_PER_PAGE;
+  const end = start + HATCHES_PER_PAGE;
+  const page = (hatches || []).slice(start, end);
+
+  const container = new ContainerBuilder();
+  addV2TitleWithBotThumbnail({ container, title: 'Egg Hatches', client });
+
+  if (!page || page.length === 0) {
+    container.addTextDisplayComponents(new TextDisplayBuilder().setContent('No active hatches.'));
+  } else {
+    for (const hatch of page) {
+      const eggDisplay = getEggDisplay(hatch.egg_type);
+      const section = new SectionBuilder()
+        .addTextDisplayComponents(new TextDisplayBuilder().setContent(`**#${hatch.id}** — ${eggDisplay} — ${hatch.collected ? 'Collected' : `<t:${Math.floor((hatch.finishes_at || 0) / 1000)}:R>`}`))
+        .setSuccessButtonAccessory(button => button.setLabel('Collect').setCustomId(`eggs-collect-one:${hatch.id}:${safePageIdx}`).setDisabled(hatch.collected));
+      container.addSectionComponents(section);
+    }
+  }
+
+  // Sort & Filter row
+  const sortOptions = [
+    new StringSelectMenuOptionBuilder().setLabel('Date desc').setValue('date_desc'),
+    new StringSelectMenuOptionBuilder().setLabel('Date asc').setValue('date_asc'),
+    new StringSelectMenuOptionBuilder().setLabel('Type asc').setValue('type_asc'),
+    new StringSelectMenuOptionBuilder().setLabel('Type desc').setValue('type_desc')
+  ];
+  const sortRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder().setCustomId('eggs-sort').setPlaceholder('Sort').setOptions(sortOptions)
+  );
+
+  const filterOptions = [{ label: 'All', value: 'all' }].concat(availableFilters || []).map(f => new StringSelectMenuOptionBuilder().setLabel(f.label || f.value).setValue(f.value));
+  const filterRow = new ActionRowBuilder().addComponents(
+    new StringSelectMenuBuilder().setCustomId('eggs-filter').setPlaceholder('Filter').setOptions(filterOptions.slice(0, 25))
+  );
+
+  container.addActionRowComponents(sortRow);
+  container.addActionRowComponents(filterRow);
+
+  // Navigation / actions
+  const navRow = new ActionRowBuilder().addComponents(
+    new SecondaryButtonBuilder().setCustomId('eggs-prev-page').setLabel('Prev').setDisabled(safePageIdx === 0),
+    new PrimaryButtonBuilder().setCustomId('eggs-next-page').setLabel('Next').setDisabled(safePageIdx >= totalPages - 1),
+    new PrimaryButtonBuilder().setCustomId('eggs-collect-all').setLabel('Collect All')
+  );
+  container.addActionRowComponents(navRow);
+
+  const bottomRow = new ActionRowBuilder().addComponents(
+    new SecondaryButtonBuilder().setCustomId('eggs-view-stats').setLabel('Stats'),
+    new SecondaryButtonBuilder().setCustomId('eggs-hatch-egg').setLabel('Hatch Egg')
+  );
+  container.addActionRowComponents(bottomRow);
+
+  return [container];
+}
+
+
 
 function buildEggsStatsPage({ hatches = [], client = null }) {
   const container = new ContainerBuilder();
@@ -262,7 +188,7 @@ function buildEggsStatsPage({ hatches = [], client = null }) {
   return [container];
 }
 
-function buildEggsView({ screen = 'list', hatches = [], pageIdx = 0, content = '', client = null, userEggs = {}, showCollected = false }) {
+function buildEggsView({ screen = 'list', hatches = [], pageIdx = 0, content = '', client = null, userEggs = {}, showCollected = false, currentSort = null, currentFilter = null, availableFilters = [] }) {
   if (screen === 'stats') {
     return buildEggsStatsPage({ hatches, client });
   }
@@ -272,7 +198,7 @@ function buildEggsView({ screen = 'list', hatches = [], pageIdx = 0, content = '
   if (screen === 'result') {
     return buildEggsResultPage(content);
   }
-  return buildEggsListPage({ pageIdx, hatches, client, showCollected });
+  return buildEggsListPage({ pageIdx, hatches, client, showCollected, currentSort, currentFilter, availableFilters });
 }
 
 module.exports = {
@@ -336,8 +262,12 @@ module.exports = {
       try { msg = await interaction.fetchReply(); } catch (_) {}
       if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
 
-      let rows = [];
+      const allRows = await hatchManager.listHatches(discordId, guildId) || [];
+      let rowsDisplayed = allRows.slice();
       let currentPage = 0;
+      let currentSort = null;
+      let currentFilter = null;
+      const availableFilters = Array.from(new Set((allRows || []).map(r => r.egg_type))).map(t => ({ label: getEggDisplay(t), value: t }));
       const logger = require('../../utils/logger').get('command:eggs');
       const collector = msg.createMessageComponentCollector({ time: 300_000 });
 
@@ -349,21 +279,24 @@ module.exports = {
           }
 
           if (i.customId === 'eggs-view-list' || i.customId === 'eggs-back-to-list') {
-            rows = await hatchManager.listHatches(discordId, guildId);
+            const fresh = await hatchManager.listHatches(discordId, guildId);
+            // refresh source lists
+            allRows.length = 0; allRows.push(...(fresh || []));
+            rowsDisplayed = allRows.slice();
             currentPage = 0;
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: 0, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: 0, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
           if (i.customId === 'eggs-prev-page') {
             currentPage = Math.max(0, currentPage - 1);
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
           if (i.customId === 'eggs-next-page') {
-            const totalPages = Math.max(1, Math.ceil(getVisibleHatches(rows).length / HATCHES_PER_PAGE));
+            const totalPages = Math.max(1, Math.ceil(getVisibleHatches(rowsDisplayed).length / HATCHES_PER_PAGE));
             currentPage = Math.min(totalPages - 1, currentPage + 1);
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
@@ -373,29 +306,53 @@ module.exports = {
             const parsedPage = Number(pageRaw);
             if (!Number.isNaN(parsedPage)) currentPage = Math.max(0, parsedPage);
             await hatchManager.collectHatch(discordId, guildId, hatchId);
-            const hatchIndex = rows.findIndex(r => r.id === hatchId);
-            if (hatchIndex !== -1) rows[hatchIndex].collected = true;
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client, showCollected: true }), flags: MessageFlags.IsComponentsV2 });
+            // refresh source list
+            const fresh = await hatchManager.listHatches(discordId, guildId);
+            allRows.length = 0; allRows.push(...(fresh || []));
+            // recompute displayed rows
+            rowsDisplayed = (!currentFilter || currentFilter === 'all') ? allRows.slice() : allRows.filter(r => r.egg_type === currentFilter);
+            if (currentSort) {
+              rowsDisplayed.sort((a, b) => {
+                if (currentSort === 'date_desc') return (b.finishes_at || 0) - (a.finishes_at || 0);
+                if (currentSort === 'date_asc') return (a.finishes_at || 0) - (b.finishes_at || 0);
+                if (currentSort === 'type_asc') return String(a.egg_type || '').localeCompare(String(b.egg_type || ''));
+                if (currentSort === 'type_desc') return String(b.egg_type || '').localeCompare(String(a.egg_type || ''));
+                if (currentSort === 'id_asc') return (a.id || 0) - (b.id || 0);
+                if (currentSort === 'id_desc') return (b.id || 0) - (a.id || 0);
+                return 0;
+              });
+            }
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, showCollected: true, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
           // Collect all ready hatches on the current list (page-aware)
           if (i.customId === 'eggs-collect-all') {
             const now = Date.now();
-            const ready = (rows || []).filter(r => !r.collected && (Number(r.finishes_at) || 0) <= now);
+            const ready = (rowsDisplayed || []).filter(r => !r.collected && (Number(r.finishes_at) || 0) <= now);
             for (const r of ready) {
-              try {
-                await hatchManager.collectHatch(discordId, guildId, r.id);
-              } catch (_) {}
-              const idx = rows.findIndex(rr => rr.id === r.id);
-              if (idx !== -1) rows[idx].collected = true;
+              try { await hatchManager.collectHatch(discordId, guildId, r.id); } catch (_) {}
             }
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client, showCollected: true }), flags: MessageFlags.IsComponentsV2 });
+            const fresh = await hatchManager.listHatches(discordId, guildId);
+            allRows.length = 0; allRows.push(...(fresh || []));
+            rowsDisplayed = (!currentFilter || currentFilter === 'all') ? allRows.slice() : allRows.filter(r => r.egg_type === currentFilter);
+            if (currentSort) {
+              rowsDisplayed.sort((a, b) => {
+                if (currentSort === 'date_desc') return (b.finishes_at || 0) - (a.finishes_at || 0);
+                if (currentSort === 'date_asc') return (a.finishes_at || 0) - (b.finishes_at || 0);
+                if (currentSort === 'type_asc') return String(a.egg_type || '').localeCompare(String(b.egg_type || ''));
+                if (currentSort === 'type_desc') return String(b.egg_type || '').localeCompare(String(a.egg_type || ''));
+                if (currentSort === 'id_asc') return (a.id || 0) - (b.id || 0);
+                if (currentSort === 'id_desc') return (b.id || 0) - (a.id || 0);
+                return 0;
+              });
+            }
+            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, showCollected: true, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
-          if (i.customId === 'eggs-view-stats') {
-            await i.update({ components: buildEggsStatsPage({ hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+                if (i.customId === 'eggs-view-stats') {
+            await i.update({ components: buildEggsStatsPage({ hatches: rowsDisplayed, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
@@ -550,6 +507,52 @@ module.exports = {
                   const u = await userModel.getUserByDiscordId(discordId);
                   const userEggs = u?.data?.guilds?.[guildId]?.eggs || {};
                   await i.update({ components: buildEggsView({ screen: 'hatch', userEggs, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+                  return;
+                }
+
+                // Sorting
+                if (i.customId === 'eggs-sort') {
+                  try {
+                    currentSort = i.values && i.values[0];
+                    rowsDisplayed = (!currentFilter || currentFilter === 'all') ? allRows.slice() : allRows.filter(r => r.egg_type === currentFilter);
+                    if (currentSort) {
+                      rowsDisplayed.sort((a, b) => {
+                        if (currentSort === 'date_desc') return (b.finishes_at || 0) - (a.finishes_at || 0);
+                        if (currentSort === 'date_asc') return (a.finishes_at || 0) - (b.finishes_at || 0);
+                        if (currentSort === 'type_asc') return String(a.egg_type || '').localeCompare(String(b.egg_type || ''));
+                        if (currentSort === 'type_desc') return String(b.egg_type || '').localeCompare(String(a.egg_type || ''));
+                        if (currentSort === 'id_asc') return (a.id || 0) - (b.id || 0);
+                        if (currentSort === 'id_desc') return (b.id || 0) - (a.id || 0);
+                        return 0;
+                      });
+                    }
+                  } catch (err) {
+                    try { await i.reply({ content: `Failed to sort hatches: ${err && (err.message || err)}`, ephemeral: true }); } catch (_) {}
+                  }
+                  await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
+                  return;
+                }
+
+                // Filter
+                if (i.customId === 'eggs-filter') {
+                  try {
+                    currentFilter = i.values && i.values[0];
+                    rowsDisplayed = (!currentFilter || currentFilter === 'all') ? allRows.slice() : allRows.filter(r => r.egg_type === currentFilter);
+                    if (currentSort) {
+                      rowsDisplayed.sort((a, b) => {
+                        if (currentSort === 'date_desc') return (b.finishes_at || 0) - (a.finishes_at || 0);
+                        if (currentSort === 'date_asc') return (a.finishes_at || 0) - (b.finishes_at || 0);
+                        if (currentSort === 'type_asc') return String(a.egg_type || '').localeCompare(String(b.egg_type || ''));
+                        if (currentSort === 'type_desc') return String(b.egg_type || '').localeCompare(String(a.egg_type || ''));
+                        if (currentSort === 'id_asc') return (a.id || 0) - (b.id || 0);
+                        if (currentSort === 'id_desc') return (b.id || 0) - (a.id || 0);
+                        return 0;
+                      });
+                    }
+                  } catch (err) {
+                    try { await i.reply({ content: `Failed to filter hatches: ${err && (err.message || err)}`, ephemeral: true }); } catch (_) {}
+                  }
+                  await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
                   return;
                 }
 
