@@ -15,15 +15,25 @@ async function getByIdScoped(id, guildId = null) {
   // Returning null when no guildId is provided prevents accidental cross-server visibility.
   if (!guildId) return null;
   // Accept xenomorphs that either have an explicit guild_id matching the guild,
-  // or are attached to a hive whose guild_id matches. This preserves compatibility
-  // with older schemas where xenos may carry guild_id or be linked via hive_id.
-  const row = await db.knex('xenomorphs')
-    .leftJoin('hives', 'xenomorphs.hive_id', 'hives.id')
-    .where('xenomorphs.id', Number(id))
-    .andWhere(function () {
-      this.where('xenomorphs.guild_id', String(guildId)).orWhere('hives.guild_id', String(guildId));
-    })
-    .first('xenomorphs.*');
+  // or are attached to a hive whose guild_id matches. For older schemas where
+  // `xenomorphs.guild_id` may not exist, fall back to checking the hive join only.
+  const hasGuildCol = await db.knex.schema.hasColumn('xenomorphs', 'guild_id');
+  let row;
+  if (hasGuildCol) {
+    row = await db.knex('xenomorphs')
+      .leftJoin('hives', 'xenomorphs.hive_id', 'hives.id')
+      .where('xenomorphs.id', Number(id))
+      .andWhere(function () {
+        this.where('xenomorphs.guild_id', String(guildId)).orWhere('hives.guild_id', String(guildId));
+      })
+      .first('xenomorphs.*');
+  } else {
+    row = await db.knex('xenomorphs')
+      .leftJoin('hives', 'xenomorphs.hive_id', 'hives.id')
+      .where('xenomorphs.id', Number(id))
+      .andWhere('hives.guild_id', String(guildId))
+      .first('xenomorphs.*');
+  }
   if (!row) return null;
   row.stats = parseJSON(row.stats, {}, `xeno:${id}.stats`);
   row.data = parseJSON(row.data, {}, `xeno:${id}.data`);
@@ -55,7 +65,8 @@ async function listByOwner(ownerId, guildId = null, includeUnassigned = false) {
       }
     }
   }
-  const rows = await q.orderBy('id', 'asc');
+  // Ensure we select xenomorphs.* explicitly to avoid ambiguous `id` when joining hives
+  const rows = await q.select('xenomorphs.*').orderBy('xenomorphs.id', 'asc');
   return rows.map(r => ({ ...r, stats: parseJSON(r.stats, {}), data: parseJSON(r.data, {}) }));
 }
 

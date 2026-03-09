@@ -30,6 +30,8 @@ module.exports = {
   async executeInteraction(interaction) {
     const respond = (payload) => safeReply(interaction, payload, { loggerName: 'command:item' });
     const sub = (() => { try { return interaction.options.getSubcommand(); } catch (e) { return null; } })();
+    // Lazy-require models so tests can mock `require('../src/models/user')` after module load
+    const userModel = require('../../models/user');
     const subCfg = sub ? (getCommandConfig(`item ${sub}`) || getCommandConfig(`item.${sub}`)) : null;
     if (subCfg && subCfg.developerOnly) {
       const cfg = require('../../../config/config.json');
@@ -43,7 +45,7 @@ module.exports = {
     const guildId = interaction.guildId;
     const userId = String(interaction.user.id);
     if (sub === 'info') {
-      const itemId = interaction.options.getString('item');
+      const itemId = interaction.options.getString('item_id');
       const item = findItem(itemId);
       if (!item) return respond({ content: 'Item not found.', ephemeral: true });
       const embed = new EmbedBuilder().setTitle(item.name).setDescription(item.description || '').addFields({ name: 'Price', value: String(item.price || '—') }, { name: 'Rarity', value: String(item.rarity || 'common') }).setColor(require('../../utils/commandsConfig').getCommandsObject().colour || 0xbab25d);
@@ -52,7 +54,7 @@ module.exports = {
 
     if (sub === 'use') {
       await interaction.deferReply({ ephemeral: true });
-      const itemId = interaction.options.getString('item');
+      const itemId = interaction.options.getString('item_id');
       const target = interaction.options.getString('target');
       const item = findItem(itemId);
       if (!item) return respond({ content: 'Item not found.' });

@@ -69,6 +69,11 @@ async function createKnex() {
       throw err;
     }
   }
+  // Test environment: use in-memory SQLite for clean isolation
+  if (process.env.NODE_ENV === 'test') {
+    const _knex = require('knex');
+    return _knex({ client: 'sqlite3', connection: { filename: ':memory:' }, useNullAsDefault: true });
+  }
 
   // Default: local SQLite file for quick development
   const dataDir = path.join(__dirname, '..', '..', 'data');
@@ -332,7 +337,7 @@ async function migrate() {
     if (!hasHives) {
       await knex.schema.createTable('hives', (table) => {
         table.increments('id').primary();
-        table.string('user_id').notNullable().unique();
+        table.string('user_id').notNullable();
         table.string('guild_id').nullable(); // Per-guild hive support
         table.string('name').defaultTo('My Hive');
         table.string('hive_type').defaultTo('default');
@@ -342,6 +347,8 @@ async function migrate() {
         table.json('data');
         table.timestamps(true, true);
       });
+      // Ensure composite uniqueness per (user_id, guild_id)
+      try { await knex.schema.alterTable('hives', (t) => t.unique(['user_id', 'guild_id'])); } catch (_) {}
       logger.info('Created `hives` table');
     } else {
       logger.info('`hives` table already exists');
@@ -353,6 +360,13 @@ async function migrate() {
         });
         logger.info('Added `guild_id` column to `hives` table');
       }
+      // Ensure unique constraint is composite (user_id, guild_id). Older schema may have had a unique on user_id alone.
+      try {
+        await knex.schema.alterTable('hives', (t) => {
+          try { t.dropUnique(['user_id']); } catch (_) {}
+        });
+      } catch (_) {}
+      try { await knex.schema.alterTable('hives', (t) => t.unique(['user_id', 'guild_id'])); } catch (_) {}
     }
   } catch (err) {
     logger.error('Failed ensuring hives table', { error: err.stack || err });

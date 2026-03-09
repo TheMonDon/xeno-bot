@@ -97,10 +97,19 @@ async function startHatch(discordId, guildId, eggTypeId, durationMs) {
   } catch (e) {
     logger.warn && logger.warn('Failed applying incubation_accelerator effect', { discordId, guildId, error: e && (e.stack || e) });
   }
-  const curEggs = Number((g.eggs && g.eggs[eggTypeId]) || 0);
+  // Allow eggs to be stored under `eggs` (preferred) or legacy `items` key
+  const curEggs = Number((g.eggs && g.eggs[eggTypeId]) || (g.items && g.items[eggTypeId]) || 0);
   if (curEggs <= 0) throw new Error('No egg of that type to hatch');
-  // decrement egg
-  g.eggs[eggTypeId] = curEggs - 1;
+  // decrement egg in the appropriate slot
+  if (g.eggs && typeof g.eggs === 'object' && (eggTypeId in g.eggs || Object.keys(g.eggs).length > 0)) {
+    g.eggs[eggTypeId] = curEggs - 1;
+  } else if (g.items && typeof g.items === 'object') {
+    g.items[eggTypeId] = Math.max(0, curEggs - 1);
+  } else {
+    // fallback to eggs object
+    g.eggs = g.eggs || {};
+    g.eggs[eggTypeId] = curEggs - 1;
+  }
   await userModel.updateUserDataRawById(user.id, data);
 
   const startedAt = Date.now();
