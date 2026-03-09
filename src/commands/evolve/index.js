@@ -457,7 +457,7 @@ module.exports = {
                   await respond({ components: buildEvolveView({ screen: 'result', message: `This evolution requires a host (${stepReq.requires_host_types.join(', ')}). Provide the host option.`, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
                   hostValidationFailed = true;
                 } else {
-                  const host = await hostModel.getHostById(hostId);
+                  const host = await hostModel.getHostById(hostId, guildId);
                   if (!host) {
                     await respond({ components: buildEvolveView({ screen: 'result', message: 'Host not found.', client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
                     hostValidationFailed = true;
@@ -471,7 +471,7 @@ module.exports = {
                       await respond({ components: buildEvolveView({ screen: 'result', message: `Host type ${host.host_type} is invalid for this evolution. Allowed: ${stepReq.requires_host_types.join(', ')}.`, client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
                       hostValidationFailed = true;
                     } else {
-                      await hostModel.removeHostById(hostId);
+                      await hostModel.removeHostById(hostId, guildId);
                     }
                   }
                 }
@@ -977,7 +977,7 @@ module.exports = {
 
       if (sub === 'start' && focusedName === 'host') {
         try {
-          const rows = await hostModel.listHostsByOwner(String(userId));
+          const rows = await hostModel.listHostsByOwner(String(userId), interaction.guildId);
           // Group hosts by host_type and present aggregated choices
           const hostGroups = new Map();
           for (const r of rows) {

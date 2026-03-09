@@ -126,7 +126,7 @@ module.exports = {
     if (focusedOption.name === 'host_id') {
       // Get user's hosts
       try {
-        const hosts = await hostModel.listHostsByOwner(userId);
+        const hosts = await hostModel.listHostsByOwner(userId, guildId);
         const emojiMap = require('../../../config/emojis.json');
         
         const hostChoices = hosts.map(h => {
@@ -340,7 +340,7 @@ module.exports = {
         }
 
         // Check host exists and belongs to sender
-        const host = await hostModel.getHostById(hostId);
+        const host = await hostModel.getHostById(hostId, guildId);
         if (!host) {
           await safeReply(interaction, { content: 'Host not found.', ephemeral: true }, { loggerName: 'command:gift' });
           return;

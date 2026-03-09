@@ -257,7 +257,8 @@ module.exports = {
     const cfgHosts = (hostsCfg && hostsCfg.hosts) || {};
 
     try {
-      const allRows = await hostModel.listHostsByOwner(userId) || [];
+      const guildId = interaction.guildId;
+      const allRows = await hostModel.listHostsByOwner(userId, guildId) || [];
       let rows = allRows.slice();
       let currentSort = null;
       let currentFilter = null;
