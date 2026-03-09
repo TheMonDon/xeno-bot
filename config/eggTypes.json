@@ -79,7 +79,7 @@
   {
     "id": "neomorph",
     "name": "Neomorph Egg",
-    "emoji": "<:pathogen_egg:1480388703582158930>",
+    "emoji": "<:pathogen_egg:1480395919890321479>",
     "weight": 0.1,
     "rarity": 7,
     "price": 70000,
@@ -90,7 +90,7 @@
   {
     "id": "deacon",
     "name": "Deacon Egg",
-    "emoji": "<:pathogen_egg:1480388703582158930>",
+    "emoji": "<:pathogen_egg:1480395919890321479>",
     "weight": 0.1,
     "rarity": 8,
     "price": 80000,
@@ -101,7 +101,7 @@
   {
     "id": "trilobite",
     "name": "Trilobite Egg",
-    "emoji": "<:pathogen_egg:1480388703582158930>",
+    "emoji": "<:pathogen_egg:1480395919890321479>",
     "weight": 0.1,
     "rarity": 7,
     "price": 70000,
@@ -112,7 +112,7 @@
   {
     "id": "belugamorph",
     "name": "Belugamorph Egg",
-    "emoji": "<:pathogen_egg:1480388703582158930>",
+    "emoji": "<:pathogen_egg:1480395919890321479>",
     "weight": 0.1,
     "rarity": 8,
     "price": 80000,
