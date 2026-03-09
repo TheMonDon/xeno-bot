@@ -35,7 +35,7 @@
   {
     "id": "warrior",
     "name": "Warrior Egg",
-    "emoji": "<:standard_egg:1480395293269692446>",
+    "emoji": "<:black_egg:1480399394456080445>",
     "weight": 3,
     "rarity": 4,
     "price": 40000,
@@ -46,7 +46,7 @@
   {
     "id": "praetorian",
     "name": "Praetorian Egg",
-    "emoji": "<:standard_egg:1480395293269692446>",
+    "emoji": "<:black_egg:1480399394456080445>",
     "weight": 0.5,
     "rarity": 6,
     "price": 60000,
@@ -134,7 +134,7 @@
   {
     "id": "crusher",
     "name": "Crusher Egg",
-    "emoji": "<:standard_egg:1480395293269692446>",
+    "emoji": "<:black_egg:1480399394456080445>",
     "weight": 0.5,
     "rarity": 7,
     "price": 70000,

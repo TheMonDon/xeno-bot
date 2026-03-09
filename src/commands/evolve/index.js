@@ -428,7 +428,18 @@ module.exports = {
         const xenoId = interaction.options.getInteger('xenomorph');
         const hostId = interaction.options.getInteger('host');
         const target = String(interaction.options.getString('next_stage') || '').trim().toLowerCase();
-        const xeno = await xenoModel.getByIdScoped(xenoId, guildId);
+        let xeno = await xenoModel.getByIdScoped(xenoId, guildId);
+        if (!xeno) {
+          // fallback to unspecific lookup for legacy rows missing guild_id
+          try { xeno = await xenoModel.getById(xenoId); } catch (_) { xeno = null; }
+          if (!xeno) {
+            try {
+              const list = await xenoModel.listByOwner(userId, guildId, true);
+              xeno = list.find(l => String(l.id) === String(xenoId)) || null;
+            } catch (_) { xeno = null; }
+          }
+        }
+
         if (!xeno) {
           await respond({ components: buildEvolveView({ screen: 'result', message: 'Xenomorph not found.', client: interaction.client }), flags: MessageFlags.IsComponentsV2, ephemeral: true });
         } else if (String(xeno.owner_id) !== userId) {
