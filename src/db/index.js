@@ -456,6 +456,18 @@ async function migrate() {
     } else {
       logger.info('`hosts` table already exists');
     }
+    // Ensure `guild_id` column exists on hosts table for newer code paths
+    try {
+      const hasGuildCol = await knex.schema.hasColumn('hosts', 'guild_id');
+      if (!hasGuildCol) {
+        logger.info('Adding `guild_id` column to `hosts` table');
+        await knex.schema.alterTable('hosts', (table) => {
+          table.string('guild_id').nullable().index();
+        });
+      }
+    } catch (ie) {
+      logger.warn('Failed ensuring hosts.guild_id column', { error: ie && ie.message });
+    }
     // If there's an existing data/hosts.json file and the hosts table is empty,
     // import the entries to the DB to preserve user data from the file-backed model.
     try {
