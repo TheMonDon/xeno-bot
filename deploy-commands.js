@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-require('./scripts/deploy-commands.js');
+require('./bin/deploy-commands.js');

@@ -1,2 +1,2 @@
 #!/usr/bin/env node
-require('./scripts/shard.js');
+require('./bin/shard.js');
