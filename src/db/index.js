@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
-const logger = require('../utils/logger').get('db');
+const utils = require('../utils');
+const logger = utils.logger.get('db');
 
 async function createKnex() {
   const dbUrl = process.env.DATABASE_URL;

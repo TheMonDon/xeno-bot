@@ -1,5 +1,6 @@
 const db = require('../db');
-const logger = require('../utils/logger').get('model:leaderboardBlacklist');
+const utils = require('../utils');
+const logger = utils.logger.get('model:leaderboardBlacklist');
 
 async function getAll() {
   const rows = await db.knex('leaderboard_blacklists').select('guild_id');

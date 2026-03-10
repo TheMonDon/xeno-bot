@@ -1,5 +1,6 @@
 const db = require('../db');
-const logger = require('../utils/logger').get('models:userResources');
+const utils = require('../utils');
+const logger = utils.logger.get('models:userResources');
 void logger;
 
 async function ensureRow(userId) {
