@@ -1,6 +1,6 @@
 {
   "name": "xeno-bot",
-  "version": "1.9.22",
+  "version": "1.9.23",
   "description": "Scalable discord.js v14 bot scaffold",
   "main": "src/index.js",
   "scripts": {
@@ -21,9 +21,7 @@
     "migrate:facehuggers:dry": "node scripts/migrate-facehuggers-to-xenos.js",
     "migrate:facehuggers": "node scripts/migrate-facehuggers-to-xenos.js --apply",
     "test": "jest --runInBand",
-    "lint": "eslint src --ext .js",
-    "start:dashboard": "NODE_ENV=production node dashboard/server.js",
-    "dev:dashboard": "nodemon dashboard/server.js"
+    "lint": "eslint src --ext .js"
   },
   "dependencies": {
     "@discordjs/builders": "^2.0.0-dev.1771286636-ccce987fa",
