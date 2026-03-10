@@ -42,7 +42,7 @@ async function run() {
     process.exit(3);
   } finally {
     // Destroy knex pool
-    try { await knex.destroy(); } catch (_) {}
+    try { await knex.destroy(); } catch (_) { /* ignore */ }
   }
 }
 

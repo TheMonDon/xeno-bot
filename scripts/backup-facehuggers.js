@@ -43,7 +43,7 @@ async function main() {
     console.error('Backup failed:', err);
     process.exitCode = 2;
   } finally {
-    try { await knex.destroy(); } catch (e) {}
+    try { await knex.destroy(); } catch (e) { /* ignore */ }
   }
 }
 

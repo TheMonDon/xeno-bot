@@ -57,7 +57,7 @@ async function main() {
     process.exit(0);
   } catch (err) {
     console.error('Cleanup failed:', err && (err.stack || err));
-    try { await knex.destroy(); } catch (_) {}
+    try { await knex.destroy(); } catch (_) { /* ignore */ }
     process.exit(1);
   }
 }

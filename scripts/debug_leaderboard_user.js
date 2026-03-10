@@ -45,7 +45,7 @@ async function main() {
     process.exit(0);
   } catch (err) {
     console.error('Error:', err && (err.message || err));
-    try { await knex.destroy(); } catch (_) {}
+    try { await knex.destroy(); } catch (_) { /* ignore */ }
     process.exit(1);
   }
 }

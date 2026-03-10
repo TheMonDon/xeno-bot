@@ -17,6 +17,6 @@ const Knex = require('knex');
     console.error(e && (e.stack || e));
     process.exitCode = 2;
   } finally {
-    try { await knex.destroy(); } catch (e) {}
+    try { await knex.destroy(); } catch (e) { /* ignore */ }
   }
 })();

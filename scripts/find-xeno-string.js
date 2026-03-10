@@ -32,7 +32,7 @@ if (!term) {
         const parsedData = data ? JSON.parse(data) : null;
         const jsonStr = JSON.stringify(parsedStats) + ' ' + JSON.stringify(parsedData);
         if (jsonStr && jsonStr.includes(term)) found = true;
-      } catch (_) {}
+      } catch (_) { /* ignore */ }
       if (found) matches.push(r);
     }
     if (matches.length === 0) {

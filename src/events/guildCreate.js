@@ -146,14 +146,14 @@ module.exports = {
               const guildCmds = await clientRef.application.commands.fetch({ guildId });
               const found = guildCmds.find(c => c.name === 'help');
               if (found) return `</help:${found.id}>`;
-            } catch (_) {}
+            } catch (_) { /* ignore */ }
           }
           // Fallback to global commands
           try {
             const globalCmds = await clientRef.application.commands.fetch();
             const found = globalCmds.find(c => c.name === 'help');
             if (found) return `</help:${found.id}>`;
-          } catch (_) {}
+          } catch (_) { /* ignore */ }
         } catch (e) {
           logger.warn('Failed resolving /help command id', { error: e && (e.stack || e) });
         }
