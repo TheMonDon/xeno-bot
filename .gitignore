@@ -27,3 +27,8 @@ tmp/
 
 # data files
 data/*.json
+
+# backups and other generated files
+*.bak
+*.tmp
+*.backup
