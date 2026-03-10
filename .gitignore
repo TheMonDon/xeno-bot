@@ -21,3 +21,6 @@ coverage/
 
 # github files
 .github/
+
+# temporary files
+tmp/
