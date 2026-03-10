@@ -1,7 +1,31 @@
 const fs = require('fs');
 const path = require('path');
-const utils = require('../utils');
-const logger = utils.logger.get('db');
+// Lazily resolve `utils.logger` to avoid circular require during module
+// initialization (some utils depend on `db`). Use a lightweight console
+// fallback until the full logger is available.
+const _consoleFallback = {
+  info: (...a) => console.log(...a),
+  warn: (...a) => console.warn(...a),
+  error: (...a) => console.error(...a),
+  debug: (...a) => (console.debug ? console.debug(...a) : console.log(...a)),
+  get: () => _consoleFallback
+};
+
+const logger = new Proxy({}, {
+  get(_, prop) {
+    try {
+      const utils = require('../utils');
+      const l = utils && utils.logger && typeof utils.logger.get === 'function'
+        ? utils.logger.get('db')
+        : _consoleFallback;
+      const val = l[prop];
+      return typeof val === 'function' ? val.bind(l) : val;
+    } catch (e) {
+      const val = _consoleFallback[prop];
+      return typeof val === 'function' ? val.bind(_consoleFallback) : val;
+    }
+  }
+});
 
 async function createKnex() {
   const dbUrl = process.env.DATABASE_URL;
