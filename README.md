@@ -1,15 +1,3 @@
-Here is a **complete README.md** including everything you requested plus a clean GitHub layout with badges, links, and structured sections.
-
-You will just need to **replace the placeholder links** for:
-
-* Invite link
-* Top.gg page
-* Docs
-* Support server
-* Banner image
-
----
-
 ![Xeno Bot Banner](https://placehold.co/1280x400?text=Xeno+Bot)
 
 # 👾 Xeno Bot
