@@ -1,4 +1,4 @@
-const { ActionRowBuilder } = require('discord.js');
+// `ActionRowBuilder` previously imported but not used — removed to satisfy linter
 const { buildLinkButtons } = require('../../utils/buttonBuilder');
 const { getCommandConfig } = require('../../utils/commandsConfig');
 const links = require('../../../config/links.json');
