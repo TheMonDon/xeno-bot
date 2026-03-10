@@ -3,7 +3,7 @@ const { ActionRowBuilder, SecondaryButtonBuilder, PrimaryButtonBuilder, DangerBu
 const hiveModel = require('../../models/hive');
 const xenomorphModel = require('../../models/xenomorph');
 const userModel = require('../../models/user');
-const { getCommandConfig, buildSubcommandOptions } = require('../../utils/commandsConfig');
+const { getCommandConfig } = require('../../utils/commandsConfig');
 const { addV2TitleWithBotThumbnail } = require('../../utils/componentsV2');
 const hiveTypes = require('../../../config/hiveTypes.json');
 const hiveDefaults = require('../../../config/hiveDefaults.json');
@@ -11,6 +11,8 @@ const emojis = require('../../../config/emojis.json');
 const { getPaginationState, buildPaginationRow } = require('../../utils/pagination');
 const db = require('../../db');
 const { formatNumber } = require('../../utils/numberFormat');
+
+const logger = require('../../utils/logger').get('command:hive');
 
 const cmd = getCommandConfig('hive') || { name: 'hive', description: 'Manage your hive' };
 
@@ -35,7 +37,7 @@ const HIVE_MODULES_PREV_PAGE = `${HIVE_MODULES_PAGINATION_PREFIX}-prev-page`;
 const HIVE_MODULES_NEXT_PAGE = `${HIVE_MODULES_PAGINATION_PREFIX}-next-page`;
 const HIVE_ASSIGN_QUEEN_SELECT_ID = 'hive-select-assign-queen';
 const HIVE_ADD_XENOS_SELECT_ID = 'hive-select-add-xenos';
-const HIVE_UPGRADE_MODULE_SELECT_ID = 'hive-select-upgrade-module';
+// const HIVE_UPGRADE_MODULE_SELECT_ID = 'hive-select-upgrade-module';
 const HIVE_REMOVE_MEMBERS_SELECT_ID = 'hive-select-remove-members';
 
 function isEvolvedXeno(x) {
@@ -168,6 +170,7 @@ function buildManagementRow({ screen, disabled = false, canAct = true }) {
   );
 }
 
+/*
 function getQuickModuleCandidate(modulesRows = []) {
   const modulesCfg = hiveDefaults.modules || {};
   let candidate = null;
@@ -187,7 +190,9 @@ function getQuickModuleCandidate(modulesRows = []) {
 
   return candidate;
 }
-
+*/
+// buildQuickActionsRow is unused; keep implementation commented out to preserve intended behavior
+/*
 function buildQuickActionsRow({ disabled = false, canAct = true, hasQueen = false, queenCost = 50, moduleCandidate = null }) {
   const moduleLabel = moduleCandidate ? `Quick Module (${moduleCandidate.cost} RJ)` : 'Quick Module (MAX)';
 
@@ -206,6 +211,7 @@ function buildQuickActionsRow({ disabled = false, canAct = true, hasQueen = fals
       .setDisabled(disabled)
   );
 }
+*/
 
 function toDiscordTimestamp(value, style = 'f') {
   const ms = Number(value || 0);
@@ -213,7 +219,7 @@ function toDiscordTimestamp(value, style = 'f') {
   return `<t:${Math.floor(ms / 1000)}:${style}>`;
 }
 
-function buildHiveScreen({ screen = 'stats', hive, targetUser, userId, rows = {}, expired = false, canAct = true, notice = null, membersPage = 0, modulesPage = 0, client = null }) {
+function buildHiveScreen({ screen = 'stats', hive, targetUser, rows = {}, expired = false, canAct = true, notice = null, membersPage = 0, modulesPage = 0, client = null }) {
   const container = new ContainerBuilder();
   
   const title = '## Hive Dashboard';
@@ -670,7 +676,7 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
         await hiveModel.updateHiveById(viewHive.id, { data: newData }).catch(() => {});
         viewHive = { ...viewHive, data: newData };
         // Refresh the message so UI reflects updated pricing label
-        try { await msg.edit({ components: buildHiveScreen({ screen: 'stats', hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, client: interaction.client }), flags: MessageFlags.IsComponentsV2 }).catch(() => {}); } catch (_) {}
+        try { await msg.edit({ components: buildHiveScreen({ screen: 'stats', hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, client: interaction.client }), flags: MessageFlags.IsComponentsV2 }).catch(() => {}); } catch (_) { /* ignore */ }
       }
     }
   } catch (e) {
@@ -909,7 +915,7 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
               return db.knex('xenomorphs').where({ owner_id: String(userId) }).whereIn('id', finalIds).update({ hive_id: null });
             });
         } catch (err) {
-          try { await i.reply({ content: `Failed to remove members: ${err && err.message}`, ephemeral: true }); } catch (_) {}
+              try { await i.reply({ content: `Failed to remove members: ${err && err.message}`, ephemeral: true }); } catch (_) { /* ignore */ }
           return;
         }
 
@@ -993,12 +999,12 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
 
       await i.update({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }) });
     } catch (err) {
-      try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hive' }); } catch (_) {}
+      try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hive' }); } catch (_) { /* ignore */ }
     }
   });
 
     collector.on('end', () => {
-    try { msg.edit({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: true, canAct, membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }), flags: MessageFlags.IsComponentsV2 }).catch(() => {}); } catch (_) {}
+    try { msg.edit({ components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: true, canAct, membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }), flags: MessageFlags.IsComponentsV2 }).catch(() => {}); } catch (_) { /* ignore */ }
   });
 }
 
@@ -1030,7 +1036,7 @@ module.exports = {
         }, { loggerName: 'command:hive' });
 
         let msg = null;
-        try { msg = await interaction.fetchReply(); } catch (_) {}
+        try { msg = await interaction.fetchReply(); } catch (_) { /* ignore */ }
         if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
 
         const collector = msg.createMessageComponentCollector({
@@ -1053,11 +1059,11 @@ module.exports = {
               let xenos = [];
               let resources = {};
               try {
-                modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => []);
-                milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => []);
-                xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => []);
-                resources = { royal_jelly: await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly') };
-              } catch (e) {}
+                modules = await db.knex('hive_modules').where({ hive_id: viewHive.id }).select('*').catch(() => []); 
+                milestones = await db.knex('hive_milestones').where({ hive_id: viewHive.id }).select('*').catch(() => []); 
+                xenos = await xenomorphModel.getXenosByOwner(String(userId), guildId).catch(() => []); 
+                resources = { royal_jelly: await userModel.getCurrencyForGuild(String(userId), guildId, 'royal_jelly') }; 
+              } catch (e) { /* ignore */ }
 
               await i.update({ components: buildHiveScreen({ screen: 'stats', hive: viewHive, targetUser: interaction.user, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct: true, client: interaction.client }) });
               collector.stop();
@@ -1130,9 +1136,9 @@ module.exports = {
             await i.update({ components: [typeSelectContainer], flags: MessageFlags.IsComponentsV2 });
 
             // Create a short-lived collector for the select menu
-            try {
-              const selMsg = i.message;
-              if (selMsg && typeof selMsg.createMessageComponentCollector === 'function') {
+              try {
+                const selMsg = i.message;
+                if (selMsg && typeof selMsg.createMessageComponentCollector === 'function') {
                 const selCollector = selMsg.createMessageComponentCollector({ filter: s => s.user.id === userId && s.customId === 'hive-create-type', time: 60_000, max: 1 });
                 selCollector.on('collect', async s => {
                   try {
@@ -1172,7 +1178,7 @@ module.exports = {
                       return;
                     }
                   } catch (err) {
-                    try { await s.reply({ content: `Error creating hive: ${err && err.message}`, ephemeral: true }); } catch (_) {}
+                    try { await s.reply({ content: `Error creating hive: ${err && err.message}`, ephemeral: true }); } catch (_) { /* ignore */ }
                   }
                 });
               }
@@ -1191,7 +1197,7 @@ module.exports = {
                 new PrimaryButtonBuilder().setLabel('Create Hive').setCustomId('hive-create-prompt').setDisabled(true)
               )
             );
-            try { await i.update({ components: [container], flags: MessageFlags.IsComponentsV2 }); } catch (_) {}
+            try { await i.update({ components: [container], flags: MessageFlags.IsComponentsV2 }); } catch (_) { /* ignore */ }
           }
         });
 
@@ -1223,7 +1229,7 @@ module.exports = {
       }, { loggerName: 'command:hive' });
 
       let msg = null;
-      try { msg = await interaction.fetchReply(); } catch (_) {}
+      try { msg = await interaction.fetchReply(); } catch (_) { /* ignore */ }
       if (!msg || typeof msg.createMessageComponentCollector !== 'function') return;
 
       await attachHiveDashboardCollector({ interaction, msg, userId, guildId, targetUser, initialHive: viewHive });
@@ -1235,6 +1241,6 @@ module.exports = {
 
   async autocomplete(interaction) {
     // No autocomplete needed for unified command
-    try { await interaction.respond([]); } catch (_) {}
+    try { await interaction.respond([]); } catch (_) { /* ignore */ }
   }
 };
