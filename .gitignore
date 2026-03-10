@@ -24,3 +24,6 @@ coverage/
 
 # temporary files
 tmp/
+
+# data files
+data/*.json
