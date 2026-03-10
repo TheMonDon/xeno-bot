@@ -18,3 +18,6 @@ coverage/
 
 # lockfiles (optional)
 # package-lock.json
+
+# github files
+.github/
