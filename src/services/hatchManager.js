@@ -1,12 +1,11 @@
-const db = require('./db');
-const logger = require('./utils/logger').get('hatch');
-const fallbackLogger = require('./utils/fallbackLogger');
-const userModel = require('./models/user');
-const eggTypes = require('../config/eggTypes.json');
+const db = require('../db');
+const logger = require('../utils/logger').get('hatch');
+const fallbackLogger = require('../utils/fallbackLogger');
+const userModel = require('../models/user');
+const eggTypes = require('../../config/eggTypes.json');
 void eggTypes;
-const xenoModel = require('./models/xenomorph');
+const xenoModel = require('../models/xenomorph');
 
-// Helper: Get guild name for logging
 function getGuildName(guildId) {
   try {
     if (!client) {
@@ -17,7 +16,6 @@ function getGuildName(guildId) {
     if (guild && guild.name) {
       return guild.name;
     }
-    // Try converting to string if it's not found
     const guildById = client.guilds.cache.get(String(guildId));
     if (guildById && guildById.name) {
       return guildById.name;
@@ -30,7 +28,7 @@ function getGuildName(guildId) {
   }
 }
 
-let timers = new Map(); // hatchId -> timeout
+let timers = new Map();
 let client = null;
 
 async function init(botClient) {
@@ -41,7 +39,6 @@ async function init(botClient) {
       const now = Date.now();
       const finishes = Number(r.finishes_at) || now;
       if (finishes <= now) {
-        // ready to collect, no timer necessary
         continue;
       }
       const delay = finishes - now;
@@ -53,7 +50,7 @@ async function init(botClient) {
     logger.error('Failed initializing hatch manager', { error: e && (e.stack || e) });
   }
   try {
-    const systemMonitor = require('./utils/systemMonitor');
+    const systemMonitor = require('../utils/systemMonitor');
     systemMonitor.registerSystem('hatchManager', { name: 'Hatch Manager', shutdown: shutdown });
   } catch (e) { logger.warn('Failed registering hatchManager with systemMonitor', { error: e && (e.stack || e) }); }
 }
@@ -65,20 +62,16 @@ function scheduleTimer(hatchId, delay) {
   const t = setTimeout(() => {
     timers.delete(hatchId);
     logger.info('Hatch finished timer fired', { hatchId });
-    // nothing else to do here — record is persisted and will be collectible
   }, delay);
   timers.set(hatchId, t);
 }
 
-// Start a hatch: consumes one egg from the user's inventory and creates a hatch row.
-// durationMs is the hatch time. Returns the created hatch row.
 async function startHatch(discordId, guildId, eggTypeId, durationMs) {
   const user = await userModel.getUserByDiscordId(discordId);
   if (!user) throw new Error('User not found');
   const data = user.data || {};
   data.guilds = data.guilds || {};
   const g = data.guilds[guildId] = data.guilds[guildId] || { eggs: {}, items: {}, currency: {} };
-  // Check for single-use incubation accelerator effect and apply it to duration
   try {
     const now = Date.now();
     if (g && g.effects && g.effects.incubation_accelerator) {
@@ -87,27 +80,22 @@ async function startHatch(discordId, guildId, eggTypeId, durationMs) {
         const mul = (typeof eff.multiplier === 'number' && eff.multiplier > 0 && eff.multiplier <= 1) ? Number(eff.multiplier) : null;
         if (mul) {
           durationMs = Math.max(1, Math.floor(Number(durationMs || 60_000) * mul));
-          // consume the effect (single-use)
           try { delete g.effects.incubation_accelerator; } catch (_) { g.effects.incubation_accelerator = null; }
         }
       } else {
-        // expired - remove
         try { delete g.effects.incubation_accelerator; } catch (_) { g.effects.incubation_accelerator = null; }
       }
     }
   } catch (e) {
     logger.warn && logger.warn('Failed applying incubation_accelerator effect', { discordId, guildId, error: e && (e.stack || e) });
   }
-  // Allow eggs to be stored under `eggs` (preferred) or legacy `items` key
   const curEggs = Number((g.eggs && g.eggs[eggTypeId]) || (g.items && g.items[eggTypeId]) || 0);
   if (curEggs <= 0) throw new Error('No egg of that type to hatch');
-  // decrement egg in the appropriate slot
   if (g.eggs && typeof g.eggs === 'object' && (eggTypeId in g.eggs || Object.keys(g.eggs).length > 0)) {
     g.eggs[eggTypeId] = curEggs - 1;
   } else if (g.items && typeof g.items === 'object') {
     g.items[eggTypeId] = Math.max(0, curEggs - 1);
   } else {
-    // fallback to eggs object
     g.eggs = g.eggs || {};
     g.eggs[eggTypeId] = curEggs - 1;
   }
@@ -123,20 +111,16 @@ async function startHatch(discordId, guildId, eggTypeId, durationMs) {
   return { id, discord_id: discordId, guild_id: guildId, egg_type: eggTypeId, started_at: startedAt, finishes_at: finishesAt };
 }
 
-// Skip hatch: pay royal jelly to complete instantly. costRoyalJelly can be number or function of egg type.
 async function skipHatch(discordId, guildId, hatchId, costRoyalJelly = 5) {
   const row = await db.knex('hatches').where({ id: hatchId, discord_id: discordId, guild_id: guildId, collected: false }).first();
   if (!row) throw new Error('Hatch not found');
   const now = Date.now();
-  if (Number(row.finishes_at) <= now) return true; // already finished
-  // charge user
+  if (Number(row.finishes_at) <= now) return true;
   const newAmt = await userModel.modifyCurrencyForGuild(discordId, guildId, 'royal_jelly', -Number(costRoyalJelly));
   if (Number(newAmt) < 0) {
-    // roll back
     await userModel.modifyCurrencyForGuild(discordId, guildId, 'royal_jelly', Number(costRoyalJelly));
     throw new Error('Insufficient royal jelly');
   }
-  // mark skipped and set finishes_at to now
   await db.knex('hatches').where({ id: hatchId }).update({ skipped: true, finishes_at: now });
   if (timers.has(hatchId)) {
     clearTimeout(timers.get(hatchId));
@@ -147,18 +131,16 @@ async function skipHatch(discordId, guildId, hatchId, costRoyalJelly = 5) {
   return true;
 }
 
-// Collect a finished hatch, granting a xenomorph to the user based on egg's next_stage
 async function collectHatch(discordId, guildId, hatchId) {
   const row = await db.knex('hatches').where({ id: hatchId, discord_id: discordId, guild_id: guildId, collected: false }).first();
   if (!row) throw new Error('Hatch not found');
   const now = Date.now();
   if (Number(row.finishes_at) > now) throw new Error('Hatch is not ready yet');
-  // Determine the stage and pathway from configs
-  let nextStage = 'facehugger'; // default
+  let nextStage = 'facehugger';
   let pathway = 'standard';
   try {
-    const eggTypesConfig = require('../config/eggTypes.json');
-    const evolConfig = require('../config/evolutions.json');
+    const eggTypesConfig = require('../../config/eggTypes.json');
+    const evolConfig = require('../../config/evolutions.json');
     const eggDef = Array.isArray(eggTypesConfig) ? eggTypesConfig.find(e => e.id === row.egg_type) : null;
     if (eggDef && eggDef.next_stage) nextStage = eggDef.next_stage;
     if (evolConfig && evolConfig.eggPathways && evolConfig.eggPathways[row.egg_type]) pathway = String(evolConfig.eggPathways[row.egg_type]);
@@ -166,12 +148,10 @@ async function collectHatch(discordId, guildId, hatchId) {
   } catch (e) {
     logger.warn('Failed loading egg type config in collectHatch', { error: e && e.message });
   }
-  // Create xenomorph record with the next_stage
   try {
     await xenoModel.createXeno(discordId, { pathway, role: nextStage, stage: nextStage, data: { fromEgg: row.egg_type }, guildId });
   } catch (e) {
     logger.warn('Failed creating xenomorph in collectHatch', { error: e && e.message });
-    // fallback to adding as an item if xeno creation fails
     try { await userModel.addItemForGuild(discordId, guildId, 'facehugger', 1); } catch (_) { /* ignore */ void 0; }
   }
   await db.knex('hatches').where({ id: hatchId }).update({ collected: true });
@@ -185,9 +165,8 @@ async function listHatches(discordId, guildId) {
   return rows.map(r => ({ id: r.id, egg_type: r.egg_type, started_at: Number(r.started_at), finishes_at: Number(r.finishes_at), collected: !!r.collected, skipped: !!r.skipped }));
 }
 
-module.exports = require('./services/hatchManager');
+module.exports = { init, startHatch, skipHatch, collectHatch, listHatches };
 
-// Shutdown helper: clear any pending timers
 async function shutdown() {
   try {
     for (const [, t] of timers.entries()) {
@@ -200,4 +179,4 @@ async function shutdown() {
   }
 }
 
-// exported via services/hatchManager shim
+module.exports.shutdown = shutdown;

@@ -1,8 +1,8 @@
-const db = require('./db');
-const logger = require('./utils/logger').get('evolutionWorker');
+const db = require('../db');
+const logger = require('../utils/logger').get('evolutionWorker');
 const { ContainerBuilder, TextDisplayBuilder, MessageFlags } = require('discord.js');
-const evolutionsCfg = require('../config/evolutions.json');
-const emojisCfg = require('../config/emojis.json');
+const evolutionsCfg = require('../../config/evolutions.json');
+const emojisCfg = require('../../config/emojis.json');
 
 function getRoleDisplay(roleId) {
   const key = String(roleId || '').toLowerCase();
@@ -34,21 +34,17 @@ async function processDueJobs(client) {
   for (const job of jobs) {
     try {
       await db.knex('evolution_queue').where({ id: job.id }).update({ status: 'processing', updated_at: db.knex.fn.now() });
-      // For now, simple deterministic success (could be chance-based)
       const success = true;
       if (success) {
         const currentXeno = await db.knex('xenomorphs').where({ id: job.xeno_id }).first();
         const fromRole = currentXeno?.role || currentXeno?.stage || 'unknown';
-        // Canonicalize target role for legacy 'facehugger' values
         let targetRole = job.target_role;
         try {
-          const xenoModel = require('./models/xenomorph');
+          const xenoModel = require('../models/xenomorph');
           targetRole = xenoModel.canonicalizeFacehugger(currentXeno?.pathway || 'standard', job.target_role);
         } catch (e) { /* ignore */ void 0; }
-        // update xenomorph role
         await db.knex('xenomorphs').where({ id: job.xeno_id }).update({ role: targetRole, updated_at: db.knex.fn.now() });
         await db.knex('evolution_queue').where({ id: job.id }).update({ status: 'completed', result: 'success', updated_at: db.knex.fn.now() });
-        // DM the user
         try {
           const user = await client.users.fetch(String(job.user_id));
           if (user) {
@@ -84,7 +80,7 @@ async function start(client, opts = {}) {
   }, pollMs);
   logger.info('Evolution worker started', { pollMs });
   try {
-    const systemMonitor = require('./utils/systemMonitor');
+    const systemMonitor = require('../utils/systemMonitor');
     systemMonitor.registerSystem('evolutionWorker', { name: 'Evolution Worker', shutdown: stop });
   } catch (e) { logger.warn('Failed registering evolutionWorker with systemMonitor', { error: e && (e.stack || e) }); }
 }
@@ -99,4 +95,4 @@ async function stop() {
   }
 }
 
-module.exports = require('./services/evolutionWorker');
+module.exports = { start, processDueJobs, stop };
