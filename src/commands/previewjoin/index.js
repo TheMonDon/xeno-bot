@@ -4,6 +4,7 @@ const logger = require('../../utils/logger').get('command:previewjoin');
 const { EmbedBuilder } = require('discord.js');
 const links = require('../../../config/links.json');
 const guildCreateHandler = require('../../events/guildCreate');
+const { buildLinkButtons } = require('../../utils/buttonBuilder');
 
 module.exports = {
   name: 'previewjoin',
@@ -87,44 +88,9 @@ module.exports = {
       // Build buttons with compatibility fallback
       const components = [];
       try {
-        // Detect whether the runtime exposes builders from discord.js
-        let supportBuilders = false;
-        try { const { ButtonBuilder } = require('discord.js'); supportBuilders = typeof ButtonBuilder === 'function'; } catch (_) { supportBuilders = false; }
-
         const pageLinks = links.general || links;
-        const buttons = [];
-        if (pageLinks && typeof pageLinks.wiki === 'string') {
-          const v = pageLinks.wiki.trim();
-          if (/^https?:\/\//i.test(v)) {
-            if (supportBuilders) {
-              const { ButtonBuilder, ButtonStyle } = require('discord.js');
-              buttons.push(new ButtonBuilder().setLabel('Documentation').setStyle(ButtonStyle.Link).setURL(v));
-            } else {
-              buttons.push({ type: 2, style: 5, label: 'Documentation', url: v });
-            }
-          } else logger.warn('Invalid wiki URL in links.json, skipping Documentation button', { url: links.wiki });
-        }
-
-        if (pageLinks && typeof pageLinks.vote === 'string') {
-          const v2 = pageLinks.vote.trim();
-          if (/^https?:\/\//i.test(v2)) {
-            if (supportBuilders) {
-              const { ButtonBuilder, ButtonStyle } = require('discord.js');
-              buttons.push(new ButtonBuilder().setLabel('Vote').setStyle(ButtonStyle.Link).setURL(v2));
-            } else {
-              buttons.push({ type: 2, style: 5, label: 'Vote', url: v2 });
-            }
-          } else logger.warn('Invalid vote URL in links.json, skipping Vote button', { url: links.vote });
-        }
-
-        if (buttons.length > 0) {
-          if (supportBuilders) {
-            const { ActionRowBuilder } = require('discord.js');
-            components.push(new ActionRowBuilder().addComponents(...buttons));
-          } else {
-            components.push({ type: 1, components: buttons });
-          }
-        }
+        const rows = buildLinkButtons(pageLinks, { logger });
+        if (rows && rows.length) components.push(...rows);
       } catch (e) {
         logger.warn('Unexpected error while building link buttons for preview embed', { error: e && (e.stack || e), links });
       }
