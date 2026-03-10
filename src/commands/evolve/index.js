@@ -365,6 +365,7 @@ function buildEvolveView({
 }
 
 module.exports = {
+  name: cmd.name,
   description: cmd.description,
   requiredPermissions: cmd.requiredPermissions,
   hidden: cmd.hidden === true,

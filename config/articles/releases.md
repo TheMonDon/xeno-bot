@@ -3,6 +3,35 @@
 View the full changelog of xeno-bot's development progress, including all features, improvements, and fixes across versions. Each version entry includes a summary of changes and links to relevant commits for more details.
 
 ----
+## v1.10.0 — Major release: guild scoping, migrations, and UX polish
+
+### Added
+- CI workflows for linting, testing, and coverage reporting.
+- New migration and backfill scripts for guild-scoped data (`guild_id`) and gambling plays.
+- Module alias registration and several new utility and model exports.
+- New commands and scripts: command validation, migrations, and various maintenance scripts (backups, counts, verifiers).
+- System monitor for tracking module statuses and updating status messages.
+- New assets and emoji references (king egg, carrier, burster, queen mother, irradiated image).
+- Webhook support for top.gg vote rewards.
+- UX improvements: 'Release All' and 'Collect All' buttons, paginated and compact views, modal search and autocomplete enhancements.
+
+### Changed
+- Large refactor: reorganized command entry points into `bin/`, moved sharding and deploy scripts, and cleaned up dashboard/server code.
+- Standardized logger and utility imports across modules; improved error handling and logging consistency.
+- Normalized and scoped xenomorph/hive/host data to support guild-level operations.
+- Updated dotenv loading and other environment handling tweaks.
+
+### Fixed
+- Various fixes to egg/eggTypes emoji mappings and hatch time corrections.
+- Inventory and evolve commands updated to include legacy/compatibility support and proper guild scoping.
+- Multiple bugfixes in host insertion, hive deletion cascade, and leaderboard scoping.
+
+### Refactored
+- Numerous refactors to improve testability, remove unused imports, and extract common utilities (button builders, component handling).
+- CI and workflow improvements; separation of lint/test jobs and clearer step naming.
+
+### Migration notes
+- Run the new migrations and backfill scripts to populate `guild_id` for hosts and xenomorphs where applicable.
 
 ## v1.9.22 — UX: V2 gift responses & leaderboard/server fixes
 
