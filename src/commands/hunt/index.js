@@ -419,9 +419,9 @@ async function performHunt(interaction, client) {
     collector.on('collect', async i => {
       // Show host list from the result view
       if (i.customId === 'hunt-view-list-from-result') {
-        rows = await hostModel.getHostsForUser(userId);
+        rows = await hostModel.listHostsByOwner(userId, guildId);
         currentPage = 0;
-        await i.update({ components: buildHostListPage({ rows, cfgHosts, emojis: emojisCfg, client }) });
+        await i.update({ components: buildHostListPage({ rows, cfgHosts, emojis: emojisCfg, client }), flags: MessageFlags.IsComponentsV2 });
         return;
       }
 
@@ -441,7 +441,7 @@ async function performHunt(interaction, client) {
         } catch (err) {
           try { await safeReply(i, { content: `Failed releasing hosts: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hunt' }); } catch (_) { /* ignore */ void 0; }
         }
-        await i.update({ components: buildHostListPage({ rows, pageIdx: currentPage, cfgHosts, emojis: emojisCfg, client }) });
+        await i.update({ components: buildHostListPage({ rows, pageIdx: currentPage, cfgHosts, emojis: emojisCfg, client }), flags: MessageFlags.IsComponentsV2 });
         return;
       }
     });
