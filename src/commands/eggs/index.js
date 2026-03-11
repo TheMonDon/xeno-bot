@@ -63,6 +63,12 @@ function buildEggsHatchPage({ userEggs = {}, client = null }) {
   const container = new ContainerBuilder();
   addV2TitleWithBotThumbnail({ container, title: 'Hatch Egg', client });
 
+  // If the user has no eggs (all quantities are 0 or no keys), show a result message
+  const hasEggs = Object.values(userEggs || {}).some(v => Number(v) > 0);
+  if (!hasEggs) {
+    return buildEggsResultPage("You don't have any eggs to hatch.");
+  }
+
   const options = eggTypes.map(e => {
     const qty = Number(userEggs?.[e.id] || 0);
     return new StringSelectMenuOptionBuilder().setLabel(`${e.name} (${qty})`).setValue(e.id);
