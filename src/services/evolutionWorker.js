@@ -45,7 +45,24 @@ async function processDueJobs(client) {
           const xenoModel = models.xenomorph;
           targetRole = xenoModel.canonicalizeFacehugger(currentXeno?.pathway || 'standard', job.target_role);
         } catch (e) { /* ignore */ void 0; }
-        await db.knex('xenomorphs').where({ id: job.xeno_id }).update({ role: targetRole, updated_at: db.knex.fn.now() });
+        // Determine whether the target role belongs to a different pathway and update pathway as well
+        const updates = { role: targetRole, updated_at: db.knex.fn.now() };
+        try {
+          // Find pathway that contains the targetRole in its stages (if any)
+          const pathKeys = Object.keys(evolutionsCfg.pathways || {});
+          for (const pk of pathKeys) {
+            const p = evolutionsCfg.pathways[pk];
+            if (p && Array.isArray(p.stages) && p.stages.includes(targetRole)) {
+              // If pathway differs from current, set it so the xeno is correctly scoped
+              if (String(currentXeno?.pathway || 'standard') !== String(pk)) {
+                updates.pathway = String(pk);
+              }
+              break;
+            }
+          }
+        } catch (e) { /* ignore pathway detection errors */ }
+
+        await db.knex('xenomorphs').where({ id: job.xeno_id }).update(updates);
         await db.knex('evolution_queue').where({ id: job.id }).update({ status: 'completed', result: 'success', updated_at: db.knex.fn.now() });
         try {
           const user = await client.users.fetch(String(job.user_id));
