@@ -4,6 +4,8 @@
 //   node scripts/dry_run_fix_standard_facehugger.js          # dry run
 //   node scripts/dry_run_fix_standard_facehugger.js --apply  # apply changes
 
+// Use a smaller pool for ad-hoc scripts to avoid exhausting DB connections
+process.env.DB_POOL_MAX = process.env.DB_POOL_MAX || '6';
 const db = require('../src/db');
 
 function parseArgs() {
@@ -21,10 +23,10 @@ function safeParseData(raw) {
 
 (async function main() {
   const args = parseArgs();
-
+  let knex;
   try {
     await db.migrate();
-    const knex = db.knex;
+    knex = db.knex;
 
     const rows = await knex('xenomorphs')
       .select('id','owner_id','pathway','role','stage','data')
@@ -34,7 +36,7 @@ function safeParseData(raw) {
 
     if (!rows.length) {
       console.log('No rows found with literal "standard_facehugger".');
-      process.exit(0);
+      return;
     }
 
     console.log(`Found ${rows.length} row(s) with "standard_facehugger":`);
@@ -66,7 +68,7 @@ function safeParseData(raw) {
 
     if (!args.apply) {
       console.log('\nDry run complete. Re-run with --apply to perform updates.');
-      process.exit(0);
+      return;
     }
 
     console.log('\nApplying updates...');
@@ -89,9 +91,12 @@ function safeParseData(raw) {
     }
 
     console.log(`Done. Applied updates: ${applied}`);
-    process.exit(0);
   } catch (e) {
     console.error('Script failed:', e && (e.stack || e));
     process.exitCode = 2;
+  } finally {
+    try {
+      if (knex && typeof knex.destroy === 'function') await knex.destroy();
+    } catch (e) { /* ignore */ }
   }
 })();
