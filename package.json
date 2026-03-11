@@ -29,7 +29,7 @@
     "@discordjs/builders": "^2.0.0-dev.1771286636-ccce987fa",
     "@discordjs/rest": "^1.4.0",
     "@sentry/node": "^7.16.0",
-    "discord-api-types": "^0.37.58",
+    "discord-api-types": "^0.38.42",
     "discord.js": "^15.0.0-pr-10758.1765463096-d081e1706",
     "dotenv": "^16.0.0",
     "express": "^4.18.2",
