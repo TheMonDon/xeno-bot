@@ -8,7 +8,10 @@ const user = require('./user');
 const userResources = require('./userResources');
 const xenomorph = require('./xenomorph');
 
+// Export models with both short and explicit `*Model` names for clarity and
+// backwards compatibility. Prefer importing via `const { userModel } = require('./models');`
 module.exports = {
+  // short names (existing)
   egg,
   evolutionQueue,
   guild,
@@ -17,5 +20,16 @@ module.exports = {
   leaderboardBlacklist,
   user,
   userResources,
-  xenomorph
+  xenomorph,
+
+  // explicit model aliases
+  eggModel: egg,
+  evolutionQueueModel: evolutionQueue,
+  guildModel: guild,
+  hiveModel: hive,
+  hostModel: host,
+  leaderboardBlacklistModel: leaderboardBlacklist,
+  userModel: user,
+  userResourcesModel: userResources,
+  xenomorphModel: xenomorph
 };
