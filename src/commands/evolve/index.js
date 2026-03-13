@@ -28,6 +28,7 @@ const hostsCfg = require('../../../config/hosts.json');
 const emojisCfg = require('../../../config/emojis.json');
 const evolutionsCfg = require('../../../config/evolutions.json');
 const itemsService = require('../../services/items');
+const componentsService = require('../../services/components');
 const cmd = { name: 'evolve', description: 'Evolve your xenomorphs' };
 const EVOLVE_LIST_PAGE_SIZE = 5;
 const EVOLVE_CANCEL_PAGE_SIZE = 10;
@@ -681,7 +682,7 @@ module.exports = {
                 };
                 interaction.client.on('interactionCreate', modalHandler);
               } catch (e) {
-                try { await i.update({ components: buildEvolveView({ screen: 'list', xenos: await xenoModel.listByOwner(userIdInner, interaction.guildId), listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client }) }); } catch (_) { /* ignore */ }
+                try { await componentsService.updateInteraction(i, { components: buildEvolveView({ screen: 'list', xenos: await xenoModel.listByOwner(userIdInner, interaction.guildId), listPage: currentListPage, listTypeFilter: currentListTypeFilter, client: interaction.client }) }); } catch (_) { /* ignore */ }
               }
             } else {
               currentListTypeFilter = chosen;

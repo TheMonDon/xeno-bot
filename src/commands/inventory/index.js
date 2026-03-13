@@ -533,6 +533,7 @@ module.exports = {
         try { require('../../utils/logger').get('command:inventory').warn('Failed to attach inventory collector'); } catch (le) { try { fallbackLogger.warn('Failed to attach inventory collector'); } catch (ignored) { /* ignore */ } }
         return;
       }
+    const componentsService = require('../../services/components');
     collector.on('collect', async i => {
       if (i.user.id !== interaction.user.id) {
         return safeReply(i, { content: 'Only the command user can interact with this view.', ephemeral: true }, { loggerName: 'command:inventory' });
@@ -566,7 +567,7 @@ module.exports = {
             { royal_jelly: balRoyal, credits: balCredits },
             { showControls: true, disablePrev: page === 0, disableNext: pages.length <= 1, currentSort, currentFilter, availableFilters }
           );
-          await i.update({ components: v2Blocks });
+          await componentsService.updateInteraction(i, { components: v2Blocks });
           return;
         }
         if (i.customId === 'inventory-sort') {
@@ -588,7 +589,7 @@ module.exports = {
             { royal_jelly: balRoyal, credits: balCredits },
             { showControls: true, disablePrev: page === 0, disableNext: pages.length <= 1, currentSort, currentFilter, availableFilters }
           );
-          await i.update({ components: v2Blocks });
+          await componentsService.updateInteraction(i, { components: v2Blocks });
           return;
         }
         if (i.customId === 'inventory-filter') {
@@ -610,7 +611,7 @@ module.exports = {
             { royal_jelly: balRoyal, credits: balCredits },
             { showControls: true, disablePrev: page === 0, disableNext: pages.length <= 1, currentSort, currentFilter, availableFilters }
           );
-          await i.update({ components: v2Blocks });
+          await componentsService.updateInteraction(i, { components: v2Blocks });
           return;
         }
         if (i.customId === 'inventory-prev' || i.customId === 'inventory-next') {
@@ -628,7 +629,7 @@ module.exports = {
             { royal_jelly: bal2Royal, credits: bal2Credits },
             { showControls: true, disablePrev: page === 0, disableNext: page >= pages.length - 1, currentSort, currentFilter, availableFilters }
           );
-          await i.update({ components: v2Blocks });
+          await componentsService.updateInteraction(i, { components: v2Blocks });
           return;
         }
         } catch (err) {
