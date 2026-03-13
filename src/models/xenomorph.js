@@ -96,7 +96,12 @@ async function createXeno(ownerId, opts = {}) {
   // Canonicalize legacy 'facehugger' values to pathway-specific names
   function canonicalizeFacehugger(pathway, value) {
     if (!value) return value;
-    if (String(value) === 'facehugger' && pathway) return `${String(pathway)}_facehugger`;
+    // For the standard pathway, the canonical role/stage is simply 'facehugger'.
+    // For non-standard pathways, prefix the pathway (e.g. 'dog' -> 'dog_facehugger').
+    if (String(value) === 'facehugger') {
+      if (pathway && String(pathway) !== 'standard') return `${String(pathway)}_facehugger`;
+      return 'facehugger';
+    }
     return value;
   }
 
@@ -146,7 +151,10 @@ module.exports = {
   // canonical names
   canonicalizeFacehugger: function(pathway, value) {
     if (!value) return value;
-    if (String(value) === 'facehugger' && pathway) return `${String(pathway)}_facehugger`;
+    if (String(value) === 'facehugger') {
+      if (pathway && String(pathway) !== 'standard') return `${String(pathway)}_facehugger`;
+      return 'facehugger';
+    }
     return value;
   },
   createXeno,
