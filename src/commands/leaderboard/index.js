@@ -332,11 +332,11 @@ module.exports = {
       ];
       const eggTypeChoices = eggTypes.map(e => ({
         label: `${e.name} Eggs`.length > 25 ? `${e.name} Eggs`.slice(0, 22) + '...' : `${e.name} Eggs`,
-        value: `eggtype_${e.id}`.length > 25 ? `eggtype_${e.id}`.slice(0, 22) + '...' : `eggtype_${e.id}`
+        value: `eggtype_${e.id}`
       }));
       const hostTypeChoices = Object.entries(hostsConfig.hosts || {}).map(([id, h]) => ({
         label: `${h.display} Hosts`.length > 25 ? `${h.display} Hosts`.slice(0, 22) + '...' : `${h.display} Hosts`,
-        value: `hosttype_${id}`.length > 25 ? `hosttype_${id}`.slice(0, 22) + '...' : `hosttype_${id}`
+        value: `hosttype_${id}`
       }));
       const sortLabel = ({ eggs: 'Total Eggs', hosts: 'Total Hosts', rarity: 'Egg Rarity', fastest: 'Fastest Catch', slowest: 'Slowest Catch' }[sortOpt] || (sortOpt.startsWith('eggtype_') ? `Egg Type ${sortOpt.replace('eggtype_','')}` : (sortOpt.startsWith('hosttype_') ? `Host Type ${sortOpt.replace('hosttype_','')}` : sortOpt)));
       const footer = `This server: #${rank} / ${totalServers} — ${currentTotal} ${sortLabel ? `(${sortLabel})` : ''}`;
@@ -523,11 +523,11 @@ module.exports = {
      ];
     const eggTypeChoices = eggTypes.map(e => ({
       label: `${e.name} Eggs`.length > 25 ? `${e.name} Eggs`.slice(0, 22) + '...' : `${e.name} Eggs`,
-      value: `eggtype_${e.id}`.length > 25 ? `eggtype_${e.id}`.slice(0, 22) + '...' : `eggtype_${e.id}`
+      value: `eggtype_${e.id}`
     }));
     const hostTypeChoices = Object.entries(hostsConfig.hosts || {}).map(([id, h]) => ({
       label: `${h.display} Hosts`.length > 25 ? `${h.display} Hosts`.slice(0, 22) + '...' : `${h.display} Hosts`,
-      value: `hosttype_${id}`.length > 25 ? `hosttype_${id}`.slice(0, 22) + '...' : `hosttype_${id}`
+      value: `hosttype_${id}`
     }));
     const footer = `Sorted by: ${sortChoices.concat(eggTypeChoices, hostTypeChoices).find(c => c.value === sort)?.label || sort}`;
     const guildAvatarUrl = interaction.guild && typeof interaction.guild.iconURL === 'function' ? interaction.guild.iconURL({ size: 256 }) : null;
