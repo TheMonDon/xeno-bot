@@ -7,7 +7,21 @@ let safeReply = null;
 const cmdCfg = getCommandConfig('item') || { name: 'item', description: 'Manage and use items' };
 
 function findItem(itemId) {
-  return (shopConfig.items || []).find(i => i.id === itemId || i.name.toLowerCase() === String(itemId).toLowerCase());
+  const q = String(itemId || '').toLowerCase().trim();
+  if (!q) return null;
+  const items = (shopConfig.items || []);
+  // Exact id match
+  let found = items.find(i => String(i.id).toLowerCase() === q);
+  if (found) return found;
+  // Exact name match
+  found = items.find(i => (i.name || '').toLowerCase() === q);
+  if (found) return found;
+  // Partial name match
+  found = items.find(i => (i.name || '').toLowerCase().includes(q));
+  if (found) return found;
+  // Fallback: id contains
+  found = items.find(i => String(i.id).toLowerCase().includes(q));
+  return found || null;
 }
 
 module.exports = {
@@ -54,16 +68,43 @@ module.exports = {
 
     if (sub === 'use') {
       await interaction.deferReply({ ephemeral: true });
-      const itemId = interaction.options.getString('item_id');
-      const target = interaction.options.getString('target');
+      const itemId = interaction.options.getString('item_id') || interaction.options.getString('item');
+      const target = interaction.options.getString('target') || interaction.options.getString('target_id');
       const item = findItem(itemId);
       if (!item) return respond({ content: 'Item not found.' });
       try {
-        const currentQty = await userModel.getUserByDiscordId(userId).then(u => { if (!u) return 0; const g = (u.data && u.data.guilds && u.data.guilds[guildId]) || {}; return Number((g.items && g.items[item.id]) || 0); });
-        if (!currentQty || currentQty <= 0) return respond({ content: `You don't have any ${item.name}.` });
-        await userModel.removeItemForGuild(userId, guildId, item.id, 1);
         const user = await userModel.getUserByDiscordId(userId);
-        const data = user.data || {};
+        if (!user) return respond({ content: `You don't have any ${item.name}.` });
+        const g = (user.data && user.data.guilds && user.data.guilds[guildId]) || {};
+        const inv = (g.items && typeof g.items === 'object') ? g.items : {};
+        // Try canonical id key first, then name variants, then attempt fuzzy match on stored keys
+        let invKey = item.id;
+        let currentQty = Number(inv[invKey] || 0);
+        if (!currentQty) {
+          const nameKey = (item.name || '').toString();
+          // direct name key
+          if (inv[nameKey]) {
+            invKey = nameKey;
+            currentQty = Number(inv[invKey] || 0);
+          }
+        }
+        if (!currentQty) {
+          // try lowercased/no-space variants
+          const normTargets = [String(item.id || '').toLowerCase(), (item.name || '').toLowerCase().replace(/\s+/g, '')];
+          const matching = Object.keys(inv || {}).find(k => {
+            const kk = String(k || '').toLowerCase().replace(/\s+/g, '');
+            return normTargets.includes(kk) || normTargets.some(t => kk === t);
+          });
+          if (matching) {
+            invKey = matching;
+            currentQty = Number(inv[invKey] || 0);
+          }
+        }
+        if (!currentQty || currentQty <= 0) return respond({ content: `You don't have any ${item.name}.` });
+        await userModel.removeItemForGuild(userId, guildId, invKey, 1);
+        const userAfter = await userModel.getUserByDiscordId(userId);
+        const data = (userAfter && userAfter.data) ? userAfter.data : (user.data || {});
+        const targetUserId = (userAfter && userAfter.id) ? userAfter.id : user.id;
         data.guilds = data.guilds || {};
         data.guilds[guildId] = data.guilds[guildId] || {};
         data.guilds[guildId].effects = data.guilds[guildId].effects || {};
@@ -125,21 +166,21 @@ module.exports = {
 
               // Transform the xeno appropriately
               const newData = Object.assign({}, xeno.data || {}, { pathogen_transformed_at: now, pathogen_transformed_by: userId });
-              if (isQueenRole || isHiveQueen) {
+                if (isQueenRole || isHiveQueen) {
                 // Queens become pathogen queens
                 await xenoModel.updateXenoById(xeno.id, { pathway: 'pathogen', role: 'pathogen_queen', stage: 'pathogen_queen', data: newData });
-                await userModel.updateUserDataRawById(user.id, data);
+                await userModel.updateUserDataRawById(targetUserId, data);
                 const PATHOGEN_EMOJI = '<:pathogen_queen:1479910616411148519>';
                 return respond({ content: `Used one ${item.name} on Queen ${PATHOGEN_EMOJI} #${xeno.id}. It has been transformed into a Pathogen Queen.` });
               } else {
                 // Drones are switched to the pathogen pathway but retain their drone stage
                 await xenoModel.updateXenoById(xeno.id, { pathway: 'pathogen', role: xeno.role || xeno.stage, stage: xeno.stage || xeno.role, data: newData });
-                await userModel.updateUserDataRawById(user.id, data);
+                await userModel.updateUserDataRawById(targetUserId, data);
                 return respond({ content: `Used one ${item.name} on Drone #${xeno.id}. It has been moved to the Pathogen pathway.` });
               }
-            } catch (err) {
-              // restore item if failed
-              try { await userModel.addItemForGuild(userId, guildId, item.id, 1); } catch (_) { /* ignore */ }
+              } catch (err) {
+              // restore item if failed (use the inventory key we consumed if available)
+              try { await userModel.addItemForGuild(userId, guildId, invKey || item.id, 1); } catch (_) { /* ignore */ }
               return respond({ content: `Failed to apply ${item.name}: ${err && err.message ? err.message : err}` });
             }
           }
@@ -149,7 +190,7 @@ module.exports = {
           default:
             break;
         }
-        await userModel.updateUserDataRawById(user.id, data);
+        await userModel.updateUserDataRawById(targetUserId, data);
         // Provide more informative feedback for certain items
         if (item.id === 'incubation_accelerator') {
           const mul = data.guilds[guildId].effects && data.guilds[guildId].effects.incubation_accelerator && data.guilds[guildId].effects.incubation_accelerator.multiplier;
@@ -199,7 +240,7 @@ module.exports = {
       const focusedName = focused.name;
 
       // Autocomplete for the `item` option: suggest items in the user's inventory first, fallback to shop
-      if (focusedName === 'item') {
+      if (focusedName === 'item' || focusedName === 'item_id') {
         const u = await userModel.getUserByDiscordId(discordId);
         let inventoryItems = [];
         if (u && u.data && u.data.guilds && u.data.guilds[guildId] && u.data.guilds[guildId].items) {
