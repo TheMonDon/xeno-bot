@@ -3,26 +3,11 @@ const { getCommandConfig, buildSubcommandOptions } = require('../../utils/comman
 const shopConfig = require('../../../config/shop.json');
 let userModel = null;
 let safeReply = null;
+const itemsService = require('../../services/items');
 
 const cmdCfg = getCommandConfig('item') || { name: 'item', description: 'Manage and use items' };
 
-function findItem(itemId) {
-  const q = String(itemId || '').toLowerCase().trim();
-  if (!q) return null;
-  const items = (shopConfig.items || []);
-  // Exact id match
-  let found = items.find(i => String(i.id).toLowerCase() === q);
-  if (found) return found;
-  // Exact name match
-  found = items.find(i => (i.name || '').toLowerCase() === q);
-  if (found) return found;
-  // Partial name match
-  found = items.find(i => (i.name || '').toLowerCase().includes(q));
-  if (found) return found;
-  // Fallback: id contains
-  found = items.find(i => String(i.id).toLowerCase().includes(q));
-  return found || null;
-}
+// use centralized items service for lookups and inventory operations
 
 module.exports = {
   name: cmdCfg.name || 'item',
@@ -70,40 +55,17 @@ module.exports = {
       await interaction.deferReply({ ephemeral: true });
       const itemId = interaction.options.getString('item_id') || interaction.options.getString('item');
       const target = interaction.options.getString('target') || interaction.options.getString('target_id');
-      const item = findItem(itemId);
+      const item = itemsService.findItem(itemId);
       if (!item) return respond({ content: 'Item not found.' });
       try {
-        const user = await userModel.getUserByDiscordId(userId);
-        if (!user) return respond({ content: `You don't have any ${item.name}.` });
-        const g = (user.data && user.data.guilds && user.data.guilds[guildId]) || {};
-        const inv = (g.items && typeof g.items === 'object') ? g.items : {};
-        // Try canonical id key first, then name variants, then attempt fuzzy match on stored keys
-        let invKey = item.id;
-        let currentQty = Number(inv[invKey] || 0);
-        if (!currentQty) {
-          const nameKey = (item.name || '').toString();
-          // direct name key
-          if (inv[nameKey]) {
-            invKey = nameKey;
-            currentQty = Number(inv[invKey] || 0);
-          }
+        // consume the item via service which returns the actual inventory key used
+        const consumed = await itemsService.consumeItemForUser(userId, guildId, item, 1);
+        if (!consumed || !consumed.success) {
+          return respond({ content: consumed && consumed.error ? `Failed to use item: ${consumed.error}` : `You don't have any ${item.name}.` });
         }
-        if (!currentQty) {
-          // try lowercased/no-space variants
-          const normTargets = [String(item.id || '').toLowerCase(), (item.name || '').toLowerCase().replace(/\s+/g, '')];
-          const matching = Object.keys(inv || {}).find(k => {
-            const kk = String(k || '').toLowerCase().replace(/\s+/g, '');
-            return normTargets.includes(kk) || normTargets.some(t => kk === t);
-          });
-          if (matching) {
-            invKey = matching;
-            currentQty = Number(inv[invKey] || 0);
-          }
-        }
-        if (!currentQty || currentQty <= 0) return respond({ content: `You don't have any ${item.name}.` });
-        await userModel.removeItemForGuild(userId, guildId, invKey, 1);
+        const invKey = consumed.key;
         const userAfter = await userModel.getUserByDiscordId(userId);
-        const data = (userAfter && userAfter.data) ? userAfter.data : (user.data || {});
+        const data = (userAfter && userAfter.data) ? userAfter.data : ({});
         const targetUserId = (userAfter && userAfter.id) ? userAfter.id : user.id;
         data.guilds = data.guilds || {};
         data.guilds[guildId] = data.guilds[guildId] || {};
@@ -180,7 +142,7 @@ module.exports = {
               }
               } catch (err) {
               // restore item if failed (use the inventory key we consumed if available)
-              try { await userModel.addItemForGuild(userId, guildId, invKey || item.id, 1); } catch (_) { /* ignore */ }
+              try { await itemsService.restoreItemForUser(userId, guildId, invKey || item.id, 1); } catch (_) { /* ignore */ }
               return respond({ content: `Failed to apply ${item.name}: ${err && err.message ? err.message : err}` });
             }
           }

@@ -281,24 +281,26 @@ module.exports = {
           await safeReply(interaction, { content: 'Invalid item.', ephemeral: true }, { loggerName: 'command:gift' });
           return;
         }
+          // Check sender has enough items (resolve actual inventory key used)
+          const itemsService = require('../../services/items');
+          const senderData = await userModel.getUserByDiscordId(senderId);
+          const senderGuildData = senderData?.data?.guilds?.[guildId];
+          const senderItems = (senderGuildData && senderGuildData.items) ? senderGuildData.items : {};
+          const resolved = itemsService.resolveInventoryKey(senderItems, item);
+          const senderQty = Number(resolved.qty || 0);
+          if (senderQty < amount) {
+            const emojiMap = require('../../../config/emojis.json');
+            const emoji = item.emoji && emojiMap[item.emoji] ? emojiMap[item.emoji] : '';
+            await safeReply(interaction, { 
+              content: `You don't have enough ${emoji} ${item.name}! You have ${senderQty}, but need ${amount}.`, 
+              ephemeral: true 
+            }, { loggerName: 'command:gift' });
+            return;
+          }
 
-        // Check sender has enough items
-        const senderData = await userModel.getUserByDiscordId(senderId);
-        const senderGuildData = senderData?.data?.guilds?.[guildId];
-        const senderItems = senderGuildData?.items?.[itemId] || 0;
-
-        if (senderItems < amount) {
-          const emojiMap = require('../../../config/emojis.json');
-          const emoji = item.emoji && emojiMap[item.emoji] ? emojiMap[item.emoji] : '';
-          await safeReply(interaction, { 
-            content: `You don't have enough ${emoji} ${item.name}! You have ${senderItems}, but need ${amount}.`, 
-            ephemeral: true 
-          }, { loggerName: 'command:gift' });
-          return;
-        }
-
-        // Remove from sender
-        await userModel.removeItemForGuild(senderId, guildId, itemId, amount);
+          // Remove from sender (use the actual inventory key)
+          const invKey = resolved.key || itemId;
+          await userModel.removeItemForGuild(senderId, guildId, invKey, amount);
         
         // Add to recipient
         await userModel.addItemForGuild(recipient.id, guildId, itemId, amount);
