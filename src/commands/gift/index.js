@@ -10,6 +10,7 @@ const xenoModel = require('../../models/xenomorph');
 const db = require('../../db');
 const safeReply = require('../../utils/safeReply');
 const fallbackLogger = require('../../utils/fallbackLogger');
+const itemsService = require('../../services/items');
 const { buildStatsV2Payload } = require('../../utils/componentsV2');
 
 const cmd = getCommandConfig('gift') || {
@@ -281,26 +282,20 @@ module.exports = {
           await safeReply(interaction, { content: 'Invalid item.', ephemeral: true }, { loggerName: 'command:gift' });
           return;
         }
-          // Check sender has enough items (resolve actual inventory key used)
-          const itemsService = require('../../services/items');
-          const senderData = await userModel.getUserByDiscordId(senderId);
-          const senderGuildData = senderData?.data?.guilds?.[guildId];
-          const senderItems = (senderGuildData && senderGuildData.items) ? senderGuildData.items : {};
-          const resolved = itemsService.resolveInventoryKey(senderItems, item);
-          const senderQty = Number(resolved.qty || 0);
-          if (senderQty < amount) {
-            const emojiMap = require('../../../config/emojis.json');
-            const emoji = item.emoji && emojiMap[item.emoji] ? emojiMap[item.emoji] : '';
-            await safeReply(interaction, { 
-              content: `You don't have enough ${emoji} ${item.name}! You have ${senderQty}, but need ${amount}.`, 
-              ephemeral: true 
-            }, { loggerName: 'command:gift' });
+          // Attempt to consume from sender using items service (handles gifted/non-canonical keys)
+          try {
+            const consumed = await itemsService.consumeItemForUser(senderId, guildId, item, amount);
+            if (!consumed || !consumed.success) {
+              const senderQty = consumed && consumed.qty ? consumed.qty : 0;
+              const emojiMap = require('../../../config/emojis.json');
+              const emoji = item.emoji && emojiMap[item.emoji] ? emojiMap[item.emoji] : '';
+              await safeReply(interaction, { content: `You don't have enough ${emoji} ${item.name}! You have ${senderQty}, but need ${amount}.`, ephemeral: true }, { loggerName: 'command:gift' });
+              return;
+            }
+          } catch (err) {
+            await safeReply(interaction, { content: `Failed to remove item from sender: ${err && err.message ? err.message : err}`, ephemeral: true }, { loggerName: 'command:gift' });
             return;
           }
-
-          // Remove from sender (use the actual inventory key)
-          const invKey = resolved.key || itemId;
-          await userModel.removeItemForGuild(senderId, guildId, invKey, amount);
         
         // Add to recipient
         await userModel.addItemForGuild(recipient.id, guildId, itemId, amount);
