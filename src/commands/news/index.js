@@ -114,9 +114,14 @@ function buildNewsV2Components({
   if (!expired) {
     // Category buttons (for home view)
     if (showCategories && Array.isArray(categories) && categories.length > 0) {
-      container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
+      {
+        const sep = new SeparatorBuilder();
+        if (typeof SeparatorSpacingSize !== 'undefined' && SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined') {
+          sep.setSpacing(SeparatorSpacingSize.Small);
+        }
+        sep.setDivider(true);
+        container.addSeparatorComponents(sep);
+      }
       const categoryRow = new ActionRowBuilder();
       for (const cat of categories.slice(0, 5)) {
         const label = String(cat).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
@@ -131,9 +136,14 @@ function buildNewsV2Components({
 
     // Navigation buttons (for article view)
     if (showNavigation) {
-      container.addSeparatorComponents(
-        new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
-      );
+      {
+        const sep = new SeparatorBuilder();
+        if (typeof SeparatorSpacingSize !== 'undefined' && SeparatorSpacingSize && typeof SeparatorSpacingSize.Small !== 'undefined') {
+          sep.setSpacing(SeparatorSpacingSize.Small);
+        }
+        sep.setDivider(true);
+        container.addSeparatorComponents(sep);
+      }
       const navRow = new ActionRowBuilder();
       const navButtons = [
         { id: 'farleft', label: '<<', disabled: disabledLeft },
