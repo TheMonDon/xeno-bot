@@ -4,6 +4,18 @@ const shopConfig = require('../../../config/shop.json');
 let userModel = null;
 let safeReply = null;
 const itemsService = require('../../services/items');
+// Local helper to resolve items (service or config fallback)
+const findItem = (id) => {
+  if (!id) return null;
+  try {
+    if (itemsService && typeof itemsService.findItem === 'function') return itemsService.findItem(id);
+  } catch (_) { /* ignore */ }
+  try {
+    const shop = require('../../../config/shop.json');
+    if (shop && Array.isArray(shop.items)) return shop.items.find(i => i.id === id || (i.name && String(i.name).toLowerCase() === String(id).toLowerCase())) || null;
+  } catch (_) { /* ignore */ }
+  return null;
+};
 
 const cmdCfg = getCommandConfig('item') || { name: 'item', description: 'Manage and use items' };
 
@@ -66,7 +78,7 @@ module.exports = {
         const invKey = consumed.key;
         const userAfter = await userModel.getUserByDiscordId(userId);
         const data = (userAfter && userAfter.data) ? userAfter.data : ({});
-        const targetUserId = (userAfter && userAfter.id) ? userAfter.id : user.id;
+        const targetUserId = (userAfter && userAfter.id) ? userAfter.id : userId;
         data.guilds = data.guilds || {};
         data.guilds[guildId] = data.guilds[guildId] || {};
         data.guilds[guildId].effects = data.guilds[guildId].effects || {};

@@ -17,11 +17,6 @@ export default defineConfig([
   {
     extends: compat.extends('eslint:recommended'),
 
-    env: {
-      node: true,
-      jest: true,
-    },
-
     languageOptions: {
       globals: {
         ...globals.node,

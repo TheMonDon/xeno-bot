@@ -16,7 +16,6 @@ class EnhancedCache {
     this._redis = null;
     try {
       // require lazily so environments without Redis still work
-      // eslint-disable-next-line global-require, import/no-dynamic-require
       const redisClient = require('../../lib/redis');
       if (redisClient && typeof redisClient.get === 'function') {
         this._redis = redisClient;
@@ -176,13 +175,13 @@ class EnhancedCache {
         const regex = new RegExp(pattern);
         let total = 0;
         do {
-          // eslint-disable-next-line no-await-in-loop
+           
           const res = await this._redis.scan(cursor, 'MATCH', '*', 'COUNT', 1000);
           cursor = res[0];
           const keys = res[1] || [];
           const toDel = keys.filter(k => regex.test(k));
           if (toDel.length) {
-            // eslint-disable-next-line no-await-in-loop
+             
             await this._redis.del(...toDel);
             total += toDel.length;
           }

@@ -169,13 +169,13 @@ try {
         const msg = err && (err.stack || String(err));
         fallback.error('Logger transport error', msg);
       } catch (_) {
-        try { process.stderr.write(`Logger transport error: ${String(err)}\n`); } catch (_) {}
+        try { process.stderr.write(`Logger transport error: ${String(err)}\n`); } catch (_) { void 0; }
       }
     });
   }
-} catch (e) {
-  try { process.stderr.write(`Failed to attach logger transport error handlers: ${e}\n`); } catch (_) {}
-}
+  } catch (e) {
+    try { process.stderr.write(`Failed to attach logger transport error handlers: ${e}\n`); } catch (_) { void 0; }
+  }
 
 // Console with colors and stack printing in non-production
 if (process.env.NODE_ENV !== 'production') {

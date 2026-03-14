@@ -20,16 +20,16 @@ if (process.env.AUTO_START_REDIS === '1') {
       // Helper failed to bring Redis up — decide whether to fail fast based on REDIS_REQUIRED
       const redisRequired = String(process.env.REDIS_REQUIRED || '').toLowerCase();
       if (redisRequired === '1' || redisRequired === 'true' || redisRequired === 'yes') {
-        // eslint-disable-next-line no-console
+         
         console.error('[redis] AUTO_START_REDIS requested and helper failed; Redis required by REDIS_REQUIRED, exiting');
         process.exit(1);
       }
       // Not required: just warn and continue so local/dev without docker can work
-      // eslint-disable-next-line no-console
+       
       console.warn('[redis] AUTO_START_REDIS requested but helper failed to start Redis or Redis not reachable; continuing without Redis because REDIS_REQUIRED is not set');
     }
   } catch (e) {
-    // eslint-disable-next-line no-console
+     
     console.error('[redis] Failed running AUTO_START_REDIS helper', e && (e.stack || e));
     const redisRequired = String(process.env.REDIS_REQUIRED || '').toLowerCase();
     if (redisRequired === '1' || redisRequired === 'true' || redisRequired === 'yes') process.exit(1);
@@ -42,12 +42,12 @@ const client = new IORedis(redisOptions);
 client.on('error', (err) => {
   // do not crash the process on Redis errors; log instead
   // logging system can be integrated here
-  // eslint-disable-next-line no-console
+   
   console.error('[redis] error', err && err.message ? err.message : err);
 });
 
 client.on('connect', () => {
-  // eslint-disable-next-line no-console
+   
   console.info('[redis] connected');
 });
 

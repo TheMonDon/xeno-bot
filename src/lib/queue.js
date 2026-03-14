@@ -11,9 +11,9 @@ function createQueue(name, opts = {}) {
   const q = new Queue(name, { connection: connectionOptions, ...opts });
   // Ensure a scheduler exists so delayed/retry jobs are processed
   // It is safe to create multiple schedulers for different queues
-  /* eslint-disable no-new */
+   
   new QueueScheduler(name, { connection: connectionOptions });
-  /* eslint-enable no-new */
+   
   return q;
 }
 
