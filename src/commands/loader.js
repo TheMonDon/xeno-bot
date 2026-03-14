@@ -6,6 +6,7 @@ const path = require('path');
 function loadCommands(commandsDir) {
   const commands = new Map();
   if (!fs.existsSync(commandsDir)) return commands;
+  const selfName = path.basename(__filename);
   const entries = fs.readdirSync(commandsDir, { withFileTypes: true });
 
   // Collect directory names first so we can prefer directory-based commands
@@ -13,6 +14,8 @@ function loadCommands(commandsDir) {
 
   for (const ent of entries) {
     try {
+      // Skip loader file and hidden files
+      if (ent.isFile() && (ent.name === selfName || ent.name.startsWith('.'))) continue;
       // Prefer directories (src/commands/<name>/index.js) when present
       if (ent.isDirectory()) {
         const indexPath = path.join(commandsDir, ent.name, 'index.js');
@@ -20,13 +23,16 @@ function loadCommands(commandsDir) {
           const command = require(indexPath);
           if (command) {
             // Infer missing command.name from directory when possible
-            if (!command.name) {
-              command.name = ent.name;
-              console.warn(`Loaded command from ${indexPath} without explicit name — inferring name='${command.name}'`);
-            }
-            // Ensure command.data.name exists for deployers/readers
-            command.data = command.data || {};
-            if (!command.data.name) command.data.name = command.name;
+              if (!command.name) {
+                command.name = ent.name;
+                console.warn(`Loaded command from ${indexPath} without explicit name — inferring name='${command.name}'`);
+              }
+              // Preserve existing `data` when present; avoid injecting an empty
+              // `data` object for message-only commands because that can cause
+              // deployment to attempt registering invalid command payloads.
+              if (command.data) {
+                if (!command.data.name) command.data.name = command.name;
+              }
             if (command.name) commands.set(command.name, command);
           }
           continue;
@@ -41,8 +47,9 @@ function loadCommands(commandsDir) {
               command.name = ent.name;
               console.warn(`Loaded command from ${fallback} without explicit name — inferring name='${command.name}'`);
             }
-            command.data = command.data || {};
-            if (!command.data.name) command.data.name = command.name;
+            if (command.data) {
+              if (!command.data.name) command.data.name = command.name;
+            }
             if (command.name) commands.set(command.name, command);
           }
           continue;
@@ -60,8 +67,9 @@ function loadCommands(commandsDir) {
             command.name = base;
             console.warn(`Loaded command from ${filePath} without explicit name — inferring name='${command.name}'`);
           }
-          command.data = command.data || {};
-          if (!command.data.name) command.data.name = command.name;
+          if (command.data) {
+            if (!command.data.name) command.data.name = command.name;
+          }
           if (command.name) commands.set(command.name, command);
         }
       }
