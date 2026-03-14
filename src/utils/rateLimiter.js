@@ -9,9 +9,12 @@ class RateLimiter {
     this.buckets = new Map(); // userId -> { tokens, lastRefill }
     this.penalties = new Map(); // userId -> penalty expiry timestamp
     
-    // Start cleanup interval to prevent memory leaks
-    this.cleanupInterval = setInterval(() => this.cleanup(), 60000); // Every minute
-    if (this.cleanupInterval && typeof this.cleanupInterval.unref === 'function') this.cleanupInterval.unref();
+    // Start cleanup interval to prevent memory leaks (disabled during tests)
+    this.cleanupInterval = null;
+    if (process.env.NODE_ENV !== 'test') {
+      this.cleanupInterval = setInterval(() => this.cleanup(), 60000); // Every minute
+      if (this.cleanupInterval && typeof this.cleanupInterval.unref === 'function') this.cleanupInterval.unref();
+    }
   }
 
   // Check if user can perform action
@@ -126,7 +129,10 @@ class RateLimiter {
   }
 
   destroy() {
-    clearInterval(this.cleanupInterval);
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
   }
 }
 

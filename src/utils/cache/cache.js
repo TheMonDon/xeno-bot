@@ -54,7 +54,7 @@ class TTLCache {
   }
 
   _startSweeper() {
-    const enabled = process.env.CACHE_SWEEP_ENABLED !== 'false';
+    const enabled = process.env.CACHE_SWEEP_ENABLED !== 'false' && process.env.NODE_ENV !== 'test';
     if (!enabled) return;
     const intervalMs = Number(process.env.CACHE_SWEEP_INTERVAL_MS) || 60000;
     this._sweeper = setInterval(() => {
@@ -64,6 +64,16 @@ class TTLCache {
     }, intervalMs);
     if (this._sweeper && typeof this._sweeper.unref === 'function') this._sweeper.unref();
   }
+
+  stop() {
+    if (this._sweeper) {
+      clearInterval(this._sweeper);
+      this._sweeper = null;
+    }
+  }
 }
 
-module.exports = new TTLCache();
+const singleton = new TTLCache();
+
+module.exports = singleton;
+module.exports.TTLCache = TTLCache;

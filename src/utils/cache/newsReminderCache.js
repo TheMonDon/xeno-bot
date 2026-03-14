@@ -82,8 +82,20 @@ class NewsReminderCache {
 
 const cache = new NewsReminderCache();
 
-// Cleanup every 10 minutes
-const _newsReminderSweep = setInterval(() => cache.cleanup(), 10 * 60 * 1000);
-if (_newsReminderSweep && typeof _newsReminderSweep.unref === 'function') _newsReminderSweep.unref();
+// Cleanup every 10 minutes (disabled in test env)
+let _newsReminderSweep = null;
+const sweepEnabled = process.env.CACHE_SWEEP_ENABLED !== 'false' && process.env.NODE_ENV !== 'test';
+if (sweepEnabled) {
+  _newsReminderSweep = setInterval(() => cache.cleanup(), 10 * 60 * 1000);
+  if (_newsReminderSweep && typeof _newsReminderSweep.unref === 'function') _newsReminderSweep.unref();
+}
+
+cache.stop = function stopNewsReminderCache() {
+  if (_newsReminderSweep) {
+    clearInterval(_newsReminderSweep);
+    _newsReminderSweep = null;
+  }
+  cache.cache.clear();
+};
 
 module.exports = cache;
