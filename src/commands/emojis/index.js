@@ -14,6 +14,7 @@ const {
 const { getCommandConfig } = require('../../utils/commandsConfig');
 const { addV2TitleWithBotThumbnail } = require('../../utils/componentsV2');
 const safeReply = require('../../utils/safeReply');
+const componentsService = require('../../services/components');
 const emojisCfg = require('../../../config/emojis.json');
 
 const cmd = getCommandConfig('emojis') || { name: 'emojis', description: 'View all emojis in the bot' };
@@ -140,7 +141,7 @@ module.exports = {
           } else if (i.customId === 'emoji-next-page') {
             currentPage = Math.min(totalPages - 1, currentPage + 1);
           }
-          await i.update({ components: buildEmojiPage({ pageIdx: currentPage, client: interaction.client }) });
+          await componentsService.updateInteraction(i, { components: buildEmojiPage({ pageIdx: currentPage, client: interaction.client }) });
           } catch (err) {
           try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:emojis' }); } catch (_) { /* ignore */ }
         }
@@ -148,8 +149,8 @@ module.exports = {
 
       collector.on('end', async () => {
         try {
-          if (msg) {
-            await msg.edit({ components: buildEmojiPage({ pageIdx: currentPage, expired: true, client: interaction.client }) });
+            if (msg) {
+            await componentsService.updateInteraction(msg, { components: buildEmojiPage({ pageIdx: currentPage, expired: true, client: interaction.client }) });
           }
         } catch (_) { /* ignore */ }
       });

@@ -18,6 +18,7 @@ const {
 const userModel = require('../../models/user');
 const safeReply = require('../../utils/safeReply');
 const itemsService = require('../../services/items');
+const componentsService = require('../../services/components');
 const { buildNoticeV2Payload, addV2TitleWithBotThumbnail } = require('../../utils/componentsV2');
 
 const logger = require('../../utils/logger').get('command:shop');
@@ -199,7 +200,7 @@ module.exports = {
           pages = buildPages(items);
           page = 0;
           const bal = await userModel.getCurrencyForGuild(String(interaction.user.id), interaction.guildId, 'royal_jelly');
-          await i.update({
+          await componentsService.updateInteraction(i, {
             components: makeShopComponents({
               categories,
               currentCategory,
@@ -217,7 +218,7 @@ module.exports = {
           if (i.customId === 'shop-next' && page < pages.length - 1) page++;
           if (i.customId === 'shop-prev' && page > 0) page--;
           const bal2 = await userModel.getCurrencyForGuild(String(interaction.user.id), interaction.guildId, 'royal_jelly');
-          await i.update({
+          await componentsService.updateInteraction(i, {
             components: makeShopComponents({
               categories,
               currentCategory,
@@ -276,7 +277,7 @@ module.exports = {
 
             // refresh balance and update main shop view in-place
             const refreshedBal = await userModel.getCurrencyForGuild(String(interaction.user.id), interaction.guildId, 'royal_jelly');
-            await i.update({
+            await componentsService.updateInteraction(i, {
               components: makeShopComponents({
                 categories,
                 currentCategory,
@@ -306,7 +307,7 @@ module.exports = {
       try {
         const bal = await userModel.getCurrencyForGuild(String(interaction.user.id), interaction.guildId, 'royal_jelly');
         if (msg) {
-          await msg.edit({
+          await componentsService.updateInteraction(msg, {
             components: makeShopComponents({
               categories,
               currentCategory,

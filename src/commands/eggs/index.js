@@ -19,6 +19,7 @@ const {
   SeparatorBuilder,
   SeparatorSpacingSize
 } = require('discord.js');
+const componentsService = require('../../services/components');
 
 const cmd = getCommandConfig('eggs') || { name: 'eggs', description: 'Manage your eggs' };
 
@@ -285,19 +286,19 @@ module.exports = {
             allRows.length = 0; allRows.push(...(fresh || []));
             rowsDisplayed = allRows.slice();
             currentPage = 0;
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: 0, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
+            await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'list', pageIdx: 0, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
           if (i.customId === 'eggs-prev-page') {
             currentPage = Math.max(0, currentPage - 1);
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
+            await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
           if (i.customId === 'eggs-next-page') {
             const totalPages = Math.max(1, Math.ceil(getVisibleHatches(rowsDisplayed).length / HATCHES_PER_PAGE));
             currentPage = Math.min(totalPages - 1, currentPage + 1);
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
+            await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
@@ -323,7 +324,7 @@ module.exports = {
                 return 0;
               });
             }
-            await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, showCollected: true, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
+            await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rowsDisplayed, client: interaction.client, showCollected: true, currentSort, currentFilter, availableFilters }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
@@ -353,14 +354,14 @@ module.exports = {
           }
 
                 if (i.customId === 'eggs-view-stats') {
-            await i.update({ components: buildEggsStatsPage({ hatches: rowsDisplayed, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            await componentsService.updateInteraction(i, { components: buildEggsStatsPage({ hatches: rowsDisplayed, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
           if (i.customId === 'eggs-hatch-egg') {
             const u = await userModel.getUserByDiscordId(discordId);
             const userEggs = u?.data?.guilds?.[guildId]?.eggs || {};
-            await i.update({ components: buildEggsView({ screen: 'hatch', userEggs, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+            await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'hatch', userEggs, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
             return;
           }
 
@@ -368,22 +369,22 @@ module.exports = {
             const selectedEggId = i.values[0];
             const eggConfig = eggTypes.find(e => e.id === selectedEggId);
             if (!eggConfig) {
-              await i.update({ components: buildEggsView({ screen: 'result', content: 'Unknown egg type.' }), flags: MessageFlags.IsComponentsV2 });
+              await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'result', content: 'Unknown egg type.' }), flags: MessageFlags.IsComponentsV2 });
               return;
             }
             try {
               const u = await userModel.getUserByDiscordId(discordId);
               const curQty = Number((u?.data?.guilds?.[guildId]?.eggs?.[selectedEggId]) || 0);
               if (curQty < 1) {
-                await i.update({ components: buildEggsView({ screen: 'result', content: `You don't have any ${eggConfig.name}.` }), flags: MessageFlags.IsComponentsV2 });
+                await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'result', content: `You don't have any ${eggConfig.name}.` }), flags: MessageFlags.IsComponentsV2 });
                 return;
               }
               const hatchSeconds = Number(eggConfig.hatch || 60);
               const h = await hatchManager.startHatch(discordId, guildId, selectedEggId, hatchSeconds * 1000);
               await hatchManager.listHatches(discordId, guildId);
-              await i.update({ components: buildEggsView({ screen: 'result', content: `Started hatching ${eggConfig.name}! Hatch ID: ${h.id}. Will finish <t:${Math.floor(h.finishes_at / 1000)}:R>.` }), flags: MessageFlags.IsComponentsV2 });
+              await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'result', content: `Started hatching ${eggConfig.name}! Hatch ID: ${h.id}. Will finish <t:${Math.floor(h.finishes_at / 1000)}:R>.` }), flags: MessageFlags.IsComponentsV2 });
             } catch (e) {
-              await i.update({ components: buildEggsView({ screen: 'result', content: `Failed to start hatch: ${e.message}` }), flags: MessageFlags.IsComponentsV2 });
+              await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'result', content: `Failed to start hatch: ${e.message}` }), flags: MessageFlags.IsComponentsV2 });
             }
             return;
           }
@@ -436,13 +437,13 @@ module.exports = {
                 // Pagination
                 if (i.customId === 'eggs-prev-page') {
                   currentPage = Math.max(0, currentPage - 1);
-                  await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+                  await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
                   return;
                 }
                 if (i.customId === 'eggs-next-page') {
                   const totalPages = Math.max(1, Math.ceil(getVisibleHatches(rows).length / HATCHES_PER_PAGE));
                   currentPage = Math.min(totalPages - 1, currentPage + 1);
-                  await i.update({ components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+                  await componentsService.updateInteraction(i, { components: buildEggsView({ screen: 'list', pageIdx: currentPage, hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
                   return;
                 }
 
@@ -505,7 +506,7 @@ module.exports = {
 
                 // View stats
                 if (i.customId === 'eggs-view-stats') {
-                  await i.update({ components: buildEggsStatsPage({ hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
+                  await componentsService.updateInteraction(i, { components: buildEggsStatsPage({ hatches: rows, client: interaction.client }), flags: MessageFlags.IsComponentsV2 });
                   return;
                 }
 
