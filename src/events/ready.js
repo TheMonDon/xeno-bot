@@ -103,7 +103,13 @@ module.exports = {
       } else {
         let idx = 0;
         const { ActivityType } = require('discord.js');
-        
+
+        // Build a case-insensitive lookup for ActivityType keys
+        const activityTypeMap = {};
+        for (const [k, v] of Object.entries(ActivityType || {})) {
+          activityTypeMap[String(k).toLowerCase()] = v;
+        }
+
         // Generate dynamic status messages based on config
         const generateActivities = () => {
           const activities = [];
@@ -111,29 +117,20 @@ module.exports = {
           // Member count across all guilds (if enabled in config)
           if (statusCycling?.displayMembers !== false) {
             const memberCount = client.guilds.cache.reduce((total, guild) => total + guild.memberCount, 0);
-            activities.push({
-              name: `${memberCount.toLocaleString()} members`,
-              type: ActivityType.Watching
-            });
+            activities.push({ name: `${memberCount.toLocaleString()} members`, type: ActivityType.Watching });
           }
           
           // Server/guild count (if enabled in config)
           if (statusCycling?.displayServers !== false) {
             const serverCount = client.guilds.cache.size;
-            activities.push({
-              name: `${serverCount.toLocaleString()} servers`,
-              type: ActivityType.Watching
-            });
+            activities.push({ name: `${serverCount.toLocaleString()} servers`, type: ActivityType.Watching });
           }
           
           // Shard info (if sharded and enabled in config)
           if (client.shard && statusCycling?.displayShard !== false) {
             const shardId = client.shard.ids[0];
             const shardCount = client.shard.count;
-            activities.push({
-              name: `Shard ${shardId}/${shardCount - 1}`,
-              type: ActivityType.Playing
-            });
+            activities.push({ name: `Shard ${shardId}/${shardCount - 1}`, type: ActivityType.Playing });
           }
           
           // Add custom activities from config if any
@@ -141,15 +138,19 @@ module.exports = {
             for (const item of statusCycling.customActivities) {
               let activity = null;
               if (typeof item === 'string') {
-                activity = { name: item };
+                activity = { name: item, type: ActivityType.Playing };
               } else if (item && typeof item === 'object') {
                 const name = item.name || item.text || '';
                 let typeVal = undefined;
-                if (item.type) {
-                  const t = String(item.type).toUpperCase();
-                  if (ActivityType[t] !== undefined) typeVal = ActivityType[t];
+                if (item.type !== undefined && item.type !== null) {
+                  if (typeof item.type === 'number') {
+                    typeVal = item.type;
+                  } else {
+                    const tKey = String(item.type).replace(/[_-]/g, '').toLowerCase();
+                    typeVal = activityTypeMap[tKey] !== undefined ? activityTypeMap[tKey] : undefined;
+                  }
                 }
-                activity = typeVal !== undefined ? { name, type: typeVal } : { name };
+                activity = { name, type: typeVal !== undefined ? typeVal : ActivityType.Playing };
               }
               if (activity) activities.push(activity);
             }
@@ -163,9 +164,14 @@ module.exports = {
             const activities = generateActivities();
             if (activities.length > 0) {
               const activity = activities[idx % activities.length];
+              // Ensure activity has a valid name
+              if (!activity || !activity.name) return;
               const rawStatus = String(statusCycling?.status || 'online').toLowerCase();
               const status = ['online', 'idle', 'dnd', 'invisible'].includes(rawStatus) ? rawStatus : 'online';
-              await client.user.setPresence({ activities: [activity], status });
+              // Coerce activity.type to a number if possible
+              const act = { name: String(activity.name) };
+              if (activity.type !== undefined && activity.type !== null) act.type = Number(activity.type);
+              await client.user.setPresence({ activities: [act], status });
               idx++;
               statusFailureStreak = 0;
             }
