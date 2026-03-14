@@ -226,7 +226,8 @@ module.exports = {
     } catch (err) {
       logger.error('Unhandled error in pathway command', { error: err && (err.stack || err) });
       try {
-        await safeReply(interaction, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:pathway' });
+        const formatErrorMessage = require('../../utils/formatErrorMessage');
+        await safeReply(interaction, { content: formatErrorMessage(err), ephemeral: true }, { loggerName: 'command:pathway' });
       } catch (replyErr) {
         logger.warn('Failed to send error reply in pathway command', { error: replyErr && (replyErr.stack || replyErr) });
       }

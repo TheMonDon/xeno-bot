@@ -414,7 +414,7 @@ module.exports = {
             return;
           }
         } catch (err) {
-          try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hunt-list' }); } catch (_) { /* ignore */ void 0; }
+          try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(i, { content: formatErrorMessage(err), ephemeral: true }, { loggerName: 'command:hunt-list' }); } catch (_) { /* ignore */ void 0; }
         }
       });
 

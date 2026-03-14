@@ -63,7 +63,7 @@ module.exports = {
             }
           } catch (e) {
             logger.error('Failed processing devmenu modal submit', { error: e && (e.stack || e) });
-            try { await safeReply(interaction, { content: `❌ Error: ${e && e.message ? e.message : 'Unknown error'}`, ephemeral: true }, { loggerName: 'interactionCreate' }); } catch (_) { /* ignore */ void 0; }
+            try { const formatErrorMessage = require('../utils/formatErrorMessage'); await safeReply(interaction, { content: formatErrorMessage(e && e.message ? e.message : 'Unknown error'), ephemeral: true }, { loggerName: 'interactionCreate' }); } catch (_) { /* ignore */ void 0; }
             return;
           }
         }

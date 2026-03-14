@@ -522,7 +522,7 @@ module.exports = {
         await safeReply(interaction, { components: [new TextDisplayBuilder().setContent(`**${target.username}'s Inventory**\n${formatInventory(eggs)}`)], flags: MessageFlags.IsComponentsV2 }, { loggerName: 'command:inventory' });
         return;
         } catch (err2) {
-          try { await safeReply(interaction, { content: 'Failed to render inventory.' }, { loggerName: 'command:inventory' }); } catch (e) { try { require('../../utils/logger').get('command:inventory').warn('Failed to editReply in inventory command', { error: e && (e.stack || e) }); } catch (le) { try { fallbackLogger.warn('Failed logging editReply error in inventory', le && (le.stack || le)); } catch (ignored) { /* ignore */ } } }
+          try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(interaction, { content: formatErrorMessage('Failed to render inventory.', { includeDetails: false }) }, { loggerName: 'command:inventory' }); } catch (e) { try { require('../../utils/logger').get('command:inventory').warn('Failed to editReply in inventory command', { error: e && (e.stack || e) }); } catch (le) { try { fallbackLogger.warn('Failed logging editReply error in inventory', le && (le.stack || le)); } catch (ignored) { /* ignore */ } } }
           throw err2;
         }
     }

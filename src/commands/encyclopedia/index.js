@@ -227,7 +227,7 @@ module.exports = {
 
         await i.update({ embeds: [embedToSend], components: [newRow] });
       } catch (err) {
-        try { await safeReply(i, { content: 'Error changing view.', ephemeral: true }, { loggerName: 'command:encyclopedia' }); } catch (_) { /* ignore */ }
+        try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(i, { content: formatErrorMessage('Error changing view.', { includeDetails: false }), ephemeral: true }, { loggerName: 'command:encyclopedia' }); } catch (_) { /* ignore */ }
       }
     });
     collector.on('end', async () => {

@@ -472,7 +472,8 @@ async function performHunt(interaction, client) {
       } catch (_) { /* ignore */ void 0; }
     });
   } catch (e) {
-    return safeReply(interaction, { content: `Hunt failed: ${e && (e.message || e)}`, ephemeral: true }, { loggerName: 'command:hunt' });
+    const formatErrorMessage = require('../../utils/formatErrorMessage');
+    return safeReply(interaction, { content: formatErrorMessage(e), ephemeral: true }, { loggerName: 'command:hunt' });
   }
 }
 

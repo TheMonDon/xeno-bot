@@ -143,7 +143,7 @@ module.exports = {
           }
           await componentsService.updateInteraction(i, { components: buildEmojiPage({ pageIdx: currentPage, client: interaction.client }) });
           } catch (err) {
-          try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:emojis' }); } catch (_) { /* ignore */ }
+          try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(i, { content: formatErrorMessage(err), ephemeral: true }, { loggerName: 'command:emojis' }); } catch (_) { /* ignore */ }
         }
       });
 
@@ -159,7 +159,7 @@ module.exports = {
     } catch (e) {
       const logger = require('../../utils/logger').get('command:emojis');
       logger.error('Unhandled error in emojis command', { error: e && (e.stack || e) });
-      try { await safeReply(interaction, { content: `Error: ${e && (e.message || e)}`, ephemeral: true }, { loggerName: 'command:emojis' }); } catch (_) { /* ignore */ }
+      try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(interaction, { content: formatErrorMessage(e), ephemeral: true }, { loggerName: 'command:emojis' }); } catch (_) { /* ignore */ }
     }
   },
 

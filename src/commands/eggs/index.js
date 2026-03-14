@@ -915,7 +915,7 @@ module.exports = {
     } catch (err) {
       const logger = require('../../utils/logger').get('command:eggs');
       logger.error('Unhandled error in eggs command', { error: err && (err.stack || err) });
-      try { const safeReply = require('../../utils/safeReply'); await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: `Error: ${err && (err.message || err)}` }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' }); } catch (replyErr) { logger.warn('Failed to send error reply in eggs command', { error: replyErr && (replyErr.stack || replyErr) }); }
+      try { const safeReply = require('../../utils/safeReply'); const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(interaction, { components: buildEggsView({ screen: 'result', content: formatErrorMessage(err) }), flags: MessageFlags.IsComponentsV2, ephemeral: true }, { loggerName: 'command:eggs' }); } catch (replyErr) { logger.warn('Failed to send error reply in eggs command', { error: replyErr && (replyErr.stack || replyErr) }); }
     }
   }
 };

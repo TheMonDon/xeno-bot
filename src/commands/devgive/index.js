@@ -361,7 +361,8 @@ module.exports = {
       
       await safeReply(interaction, { content: 'Unknown type selected.', ephemeral: true }, { loggerName: 'command:devgive' });
     } catch (err) {
-      await safeReply(interaction, { content: `Failed: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:devgive' });
+      const formatErrorMessage = require('../../utils/formatErrorMessage');
+      await safeReply(interaction, { content: formatErrorMessage(err), ephemeral: true }, { loggerName: 'command:devgive' });
     }
   },
   async executeMessage(message, args) {

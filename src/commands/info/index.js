@@ -6,6 +6,7 @@ const fallbackLogger = require('../../utils/fallbackLogger');
 const { execSync } = require('child_process');
 const pkg = require('../../../package.json');
 const discord = require('discord.js');
+const safeReply = require('../../utils/safeReply');
 
 const cmd = getCommandConfig('info') || {
   name: 'info',

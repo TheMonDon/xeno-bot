@@ -847,7 +847,7 @@ module.exports = {
             return;
           }
         } catch (err) {
-          try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:evolve' }); } catch (_) { /* ignore */ }
+          try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(i, { content: formatErrorMessage(err), ephemeral: true }, { loggerName: 'command:evolve' }); } catch (_) { /* ignore */ }
         }
       });
 

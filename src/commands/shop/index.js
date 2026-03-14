@@ -299,7 +299,7 @@ module.exports = {
           return;
         }
       } catch (err) {
-        try { await safeReply(i, { content: 'Error handling shop interaction.', ephemeral: true }, { loggerName: 'command:shop' }); } catch (e) { try { logger.warn('Failed sending error reply in shop interaction handler', { error: e && (e.stack || e) }); } catch (le) { try { fallbackLogger.warn('Failed logging shop interaction error reply failure', le && (le.stack || le)); } catch (ignored) { /* ignore */ void 0; } } }
+        try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(i, { content: formatErrorMessage('Error handling shop interaction.', { includeDetails: false }), ephemeral: true }, { loggerName: 'command:shop' }); } catch (e) { try { logger.warn('Failed sending error reply in shop interaction handler', { error: e && (e.stack || e) }); } catch (le) { try { fallbackLogger.warn('Failed logging shop interaction error reply failure', le && (le.stack || le)); } catch (ignored) { /* ignore */ void 0; } } }
       }
     });
 

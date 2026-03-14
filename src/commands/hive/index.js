@@ -1002,7 +1002,7 @@ async function attachHiveDashboardCollector({ interaction, msg, userId, guildId,
 
       await componentsService.updateInteraction(i, { components: buildHiveScreen({ screen: currentScreen, hive: viewHive, targetUser, userId, rows: { modules, milestones, resources, xenos }, expired: false, canAct, membersPage: currentMembersPage, modulesPage: currentModulesPage, client: interaction.client }) });
     } catch (err) {
-      try { await safeReply(i, { content: `Error: ${err && (err.message || err)}`, ephemeral: true }, { loggerName: 'command:hive' }); } catch (_) { /* ignore */ }
+      try { const formatErrorMessage = require('../../utils/formatErrorMessage'); await safeReply(i, { content: formatErrorMessage(err), ephemeral: true }, { loggerName: 'command:hive' }); } catch (_) { /* ignore */ }
     }
   });
 
@@ -1238,7 +1238,8 @@ module.exports = {
       await attachHiveDashboardCollector({ interaction, msg, userId, guildId, targetUser, initialHive: viewHive });
       return;
     } catch (e) {
-      return safeReply(interaction, { content: `Error: ${e && (e.message || e)}`, ephemeral: true }, { loggerName: 'command:hive' });
+      const formatErrorMessage = require('../../utils/formatErrorMessage');
+      return safeReply(interaction, { content: formatErrorMessage(e), ephemeral: true }, { loggerName: 'command:hive' });
     }
   },
 
