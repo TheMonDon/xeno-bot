@@ -25,7 +25,7 @@ module.exports = {
       await message.reply({ content: '🔁 Starting slash command registration (deploy-commands.js)...', allowedMentions: { repliedUser: false } });
     } catch (e) { /* ignore */ }
 
-    const script = path.join(process.cwd(), 'deploy-commands.js');
+    const script = path.join(process.cwd(), 'bin', 'deploy-commands.js');
     const cmd = `node "${script}"`;
     const child = exec(cmd, { cwd: process.cwd(), env: process.env, timeout: 2 * 60 * 1000 }, (error, stdout, stderr) => {
       try {

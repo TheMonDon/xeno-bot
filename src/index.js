@@ -259,7 +259,7 @@ async function startup() {
         const deployChild = async (envOverrides = {}) => {
           try {
             const node = process.execPath || 'node';
-            const deployPath = path.join(__dirname, '..', 'deploy-commands.js');
+            const deployPath = path.join(__dirname, '..', 'bin', 'deploy-commands.js');
             const env = Object.assign({}, process.env, envOverrides);
             const res = childProcess.spawnSync(node, [deployPath], { env, stdio: 'inherit' });
             if (res.error)
