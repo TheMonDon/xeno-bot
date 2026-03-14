@@ -5,6 +5,19 @@ const fallbackLogger = utils.fallbackLogger;
 const { PermissionsBitField } = require('discord.js');
 const config = require('../../config/config.json');
 
+// Best-effort: find the module id in require.cache that exported a given object
+function findModuleForExport(exp) {
+  try {
+    const cache = require.cache || {};
+    for (const id of Object.keys(cache)) {
+      try {
+        if (cache[id] && cache[id].exports === exp) return id;
+      } catch (_) { /* ignore */ }
+    }
+  } catch (_) { /* ignore */ }
+  return null;
+}
+
 function resolveOwnerId() {
   try {
     if (process.env.BOT_CONFIG_PATH) {
@@ -187,7 +200,14 @@ module.exports = {
             } catch (e) { try { logger.warn('Failed to add sentry breadcrumb (command.execute.start)', { error: e && (e.stack || e) }); } catch (le) { fallbackLogger.warn('Failed logging breadcrumb failure (command.execute.start)', le && (le.stack || le)); } }
           }
           if (command.executeInteraction) {
-            await command.executeInteraction(interaction);
+            try {
+              await command.executeInteraction(interaction);
+            } catch (cmdErr) {
+              const handlerModule = findModuleForExport(command);
+              logger.error('Command handler threw an error', { command: interaction.commandName, handlerModule, error: cmdErr && (cmdErr.stack || cmdErr) });
+              // rethrow so the outer error handler can perform error reply logic
+              throw cmdErr;
+            }
           }
           if (baseLogger && baseLogger.sentry) {
             try {
