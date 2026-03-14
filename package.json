@@ -6,9 +6,9 @@
   "scripts": {
     "start": "NODE_ENV=production NODE_OPTIONS=--max-old-space-size=1024 node bin/shard.js",
     "start:single": "NODE_ENV=production NODE_OPTIONS=--max-old-space-size=1024 node src/index.js",
-    "start:dev": "NODE_ENV=development node src/index.js",
-    "dev": "NODE_ENV=development nodemon",
-    "dev:shards": "NODE_ENV=development node bin/shard.js",
+    "start:dev": "AUTO_START_REDIS=1 NODE_ENV=development node src/index.js",
+    "dev": "AUTO_START_REDIS=1 NODE_ENV=development nodemon",
+    "dev:shards": "AUTO_START_REDIS=1 NODE_ENV=development node bin/shard.js",
     "deploy-dev-commands": "BOT_PROFILE=dev node bin/deploy-commands.js",
     "clear-public-commands": "BOT_PROFILE=public CLEAR_GLOBAL_COMMANDS=true node bin/deploy-commands.js",
     "deploy:public": "BOT_PROFILE=public node bin/deploy-commands.js",

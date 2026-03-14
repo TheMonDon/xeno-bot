@@ -192,9 +192,46 @@ function startMemoryWatchdog() {
 }
 
 async function startup() {
-  const startupProgress = createStartupProgress(4);
+  const startupProgress = createStartupProgress(5);
 
   try {
+    await startupProgress.runStep('Redis availability', async () => {
+      try {
+        const net = require('net');
+        const urlStr = process.env.REDIS_URL;
+        let host = process.env.REDIS_HOST || '127.0.0.1';
+        let port = process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379;
+        if (urlStr) {
+          try {
+            const u = new URL(urlStr);
+            host = u.hostname || host;
+            port = u.port ? Number(u.port) : port;
+          } catch (e) { /* ignore parse errors */ }
+        }
+
+        const reachable = await new Promise((resolve) => {
+          const sock = new net.Socket();
+          let done = false;
+          sock.setTimeout(1500);
+          sock.once('error', () => { if (!done) { done = true; sock.destroy(); resolve(false); } });
+          sock.once('timeout', () => { if (!done) { done = true; sock.destroy(); resolve(false); } });
+          sock.connect(port, host, () => { if (!done) { done = true; sock.end(); resolve(true); } });
+        });
+
+        if (reachable) baseLogger.info('Redis reachable', { host, port });
+        else baseLogger.warn('Redis not reachable', { host, port });
+
+        const redisRequired = String(process.env.REDIS_REQUIRED || '').toLowerCase();
+        if ((redisRequired === '1' || redisRequired === 'true' || redisRequired === 'yes') && !reachable) {
+          throw new Error(`Redis required but not reachable at ${host}:${port}`);
+        }
+      } catch (err) {
+        baseLogger.warn('Redis availability check failed', { error: err && (err.stack || err) });
+        const redisRequired = String(process.env.REDIS_REQUIRED || '').toLowerCase();
+        if (redisRequired === '1' || redisRequired === 'true' || redisRequired === 'yes') throw err;
+      }
+    });
+
     await startupProgress.runStep('Database migration', async () => {
       try {
         await db.migrate();

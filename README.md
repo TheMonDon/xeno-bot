@@ -135,6 +135,39 @@ npm start
 
 ---
 
+### Redis (optional but recommended)
+
+Xeno Bot can use Redis for background job queues, caching, and faster pub/sub operations. Redis is optional for many core features, but recommended if you plan to run workers or use queue-backed features.
+
+- Environment vars:
+	- `REDIS_URL` — full connection URL (overrides host/port/password)
+	- `REDIS_HOST` — host (default: `127.0.0.1`)
+	- `REDIS_PORT` — port (default: `6379`)
+	- `REDIS_PASSWORD` — password (optional)
+	- `AUTO_START_REDIS` — when set to `1` for development scripts, the bot will attempt to auto-start Redis (Docker or local `redis-server`) and wait briefly for readiness. Default is controlled in `.env`.
+	- `AUTO_START_REDIS_TIMEOUT_MS` — timeout for auto-start helper (milliseconds)
+	- `REDIS_REQUIRED` — when set to `1|true|yes`, startup will fail if Redis is not reachable.
+
+If you don't run Docker on your machine, the auto-start helper will try to spawn a local `redis-server` binary (if installed). To run Redis manually:
+
+```bash
+# Docker (recommended if available)
+docker compose up -d
+
+# Or run redis-server locally (Homebrew/macOS)
+brew install redis
+brew services start redis
+
+# Quick one-off with Docker
+docker run -p 6379:6379 --name xeno-redis -d redis:7-alpine
+
+# Verify
+redis-cli ping   # should reply PONG
+```
+
+To disable auto-start in development, set `AUTO_START_REDIS=0` in your `.env` file.
+
+
 # 🤝 Contributing
 
 Contributions are welcome and appreciated.
