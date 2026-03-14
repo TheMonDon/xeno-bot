@@ -29,10 +29,21 @@ async function createUser(discordId, initialData = {}) {
   dataToStore.guilds = dataToStore.guilds || {};
   // set global currency defaults
   dataToStore.currency = Object.assign({}, globalDefaults.currency || { credits: 0 });
-  const inserted = await db.knex('users').insert({ discord_id: discordId, data: JSON.stringify(dataToStore) });
-  const id = Array.isArray(inserted) ? inserted[0] : inserted;
-  logger.info('Created user', { discordId, id });
-  return getUserByDiscordId(discordId);
+  try {
+    const inserted = await db.knex('users').insert({ discord_id: discordId, data: JSON.stringify(dataToStore) });
+    const id = Array.isArray(inserted) ? inserted[0] : inserted;
+    logger.info('Created user', { discordId, id });
+    return getUserByDiscordId(discordId);
+  } catch (err) {
+    // Handle potential race condition where another process created the user
+    const msg = (err && (err.stack || err.message || '')).toString();
+    if (msg.includes('UNIQUE constraint failed') || msg.includes('unique constraint') || (err && err.code === 'SQLITE_CONSTRAINT')) {
+      logger.warn('Attempted to create user but discord_id already exists; returning existing user', { discordId, error: msg });
+      return getUserByDiscordId(discordId);
+    }
+    logger.error('Failed to create user', { discordId, error: msg });
+    throw err;
+  }
 }
 
 async function updateUserData(discordId, newData) {
