@@ -144,8 +144,24 @@ async function collectHatch(discordId, guildId, hatchId) {
     const evolConfig = require('../../config/evolutions.json');
     const eggDef = Array.isArray(eggTypesConfig) ? eggTypesConfig.find(e => e.id === row.egg_type) : null;
     if (eggDef && eggDef.next_stage) nextStage = eggDef.next_stage;
-    if (evolConfig && evolConfig.eggPathways && evolConfig.eggPathways[row.egg_type]) pathway = String(evolConfig.eggPathways[row.egg_type]);
-    else if (eggDef && eggDef.pathway) pathway = String(eggDef.pathway);
+    if (evolConfig && evolConfig.eggPathways) {
+      const rawKey = String(row.egg_type || '').trim();
+      // Direct lookup first
+      if (rawKey && evolConfig.eggPathways[rawKey]) {
+        pathway = String(evolConfig.eggPathways[rawKey]);
+      } else if (rawKey) {
+        // Try normalized variants (remove underscores/dashes and lowercase)
+        const normalized = rawKey.replace(/[_-]/g, '').toLowerCase();
+        for (const [k, v] of Object.entries(evolConfig.eggPathways)) {
+          if (String(k).replace(/[_-]/g, '').toLowerCase() === normalized) {
+            pathway = String(v);
+            break;
+          }
+        }
+      }
+    }
+    // fallback to eggDef.pathway if present
+    if (( !pathway || pathway === 'standard') && eggDef && eggDef.pathway) pathway = String(eggDef.pathway);
   } catch (e) {
     logger.warn('Failed loading egg type config in collectHatch', { error: e && e.message });
   }
