@@ -5,6 +5,7 @@ const {
   SeparatorSpacingSize,
   TextDisplayBuilder
 } = require('@discordjs/builders');
+const SeparatorSmall = (SeparatorSpacingSize && SeparatorSpacingSize.Small) || 1;
 const { MessageFlags } = require('discord.js');
 
 function addV2TitleWithBotThumbnail({ container, title, client }) {
@@ -47,7 +48,7 @@ function buildStatsV2Payload({ title, rows = [], footer = null, client = null })
 
   if (safeRows.length > 0) {
     container.addSeparatorComponents(
-      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+      new SeparatorBuilder().setSpacing(SeparatorSmall).setDivider(true)
     );
     const body = safeRows
       .map((row) => `**${String(row.label || 'Value')}**: ${String(row.value ?? 'None')}`)
@@ -100,7 +101,7 @@ function buildNoticeV2Payload({
 
   addV2TitleWithBotThumbnail({ container, title: safeTitle, client });
   container.addSeparatorComponents(
-    new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small).setDivider(true)
+    new SeparatorBuilder().setSpacing(SeparatorSmall).setDivider(true)
   );
   container.addTextDisplayComponents(
     new TextDisplayBuilder().setContent(safeMessage)
