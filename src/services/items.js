@@ -1,5 +1,5 @@
 const shopConfig = require('../../config/shop.json');
-const userModel = require('../models/user');
+// lazy-require `userModel` inside functions to allow tests to mock the module
 
 function findItem(query) {
   const q = String(query || '').toLowerCase().trim();
@@ -39,6 +39,7 @@ function resolveInventoryKey(inv = {}, item) {
 }
 
 async function consumeItemForUser(userId, guildId, itemQueryOrId, amount = 1) {
+  const userModel = require('../models/user');
   const item = typeof itemQueryOrId === 'object' && itemQueryOrId && itemQueryOrId.id ? itemQueryOrId : findItem(itemQueryOrId);
   if (!item) return { success: false, error: 'Item not found', item: null };
   // Fetch fresh user data
@@ -58,6 +59,7 @@ async function consumeItemForUser(userId, guildId, itemQueryOrId, amount = 1) {
 
 async function restoreItemForUser(userId, guildId, invKey, amount = 1) {
   try {
+    const userModel = require('../models/user');
     await userModel.addItemForGuild(String(userId), guildId, invKey, amount);
     return { success: true };
   } catch (err) {
