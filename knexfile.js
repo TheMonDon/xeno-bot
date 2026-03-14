@@ -30,4 +30,18 @@ module.exports = {
       directory: path.join(__dirname, 'migrations')
     }
   }
+  ,
+  mysql: {
+    client: 'mysql2',
+    connection: {
+      host: process.env.MYSQL_HOST || '127.0.0.1',
+      port: process.env.MYSQL_PORT ? Number(process.env.MYSQL_PORT) : 3306,
+      user: process.env.MYSQL_USER || process.env.DB_USER || 'root',
+      password: process.env.MYSQL_PASSWORD || process.env.DB_PASSWORD || '',
+      database: process.env.MYSQL_DATABASE || process.env.DB_DATABASE || 'xeno_bot',
+      charset: process.env.MYSQL_CHARSET || 'utf8mb4'
+    },
+    pool: { min: 2, max: 10 },
+    migrations: { directory: path.join(__dirname, 'migrations') }
+  }
 };
