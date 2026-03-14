@@ -1,7 +1,8 @@
 const db = require('../db');
 const utils = require('../utils');
 const logger = utils.logger.get('evolutionWorker');
-const { ContainerBuilder, TextDisplayBuilder, MessageFlags } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder } = require('@discordjs/builders');
+const { MessageFlags } = require('discord.js');
 const evolutionsCfg = require('../../config/evolutions.json');
 const emojisCfg = require('../../config/emojis.json');
 

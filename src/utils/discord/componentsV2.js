@@ -3,9 +3,9 @@ const {
   SectionBuilder,
   SeparatorBuilder,
   SeparatorSpacingSize,
-  TextDisplayBuilder,
-  MessageFlags
-} = require('discord.js');
+  TextDisplayBuilder
+} = require('@discordjs/builders');
+const { MessageFlags } = require('discord.js');
 
 function addV2TitleWithBotThumbnail({ container, title, client }) {
   const safeTitle = String(title || 'Title').trim();

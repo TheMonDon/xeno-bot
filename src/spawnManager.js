@@ -9,12 +9,9 @@ const emojis = require('../config/emojis.json');
 const eggTypes = require('../config/eggTypes.json');
 const path = require('path');
 const fs = require('fs');
-const {
-  PermissionsBitField,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  MessageFlags,
-} = require('discord.js');
+const { PermissionsBitField } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder } = require('@discordjs/builders');
+const { MessageFlags } = require('discord.js');
 const db = require('./db');
 
 // Helper: Get guild name for logging

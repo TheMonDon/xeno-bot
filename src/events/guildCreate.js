@@ -1,12 +1,8 @@
 const utils = require('../utils');
 const logger = utils.logger.get('guildCreate');
-const {
-  PermissionFlagsBits,
-  EmbedBuilder,
-  ContainerBuilder,
-  TextDisplayBuilder,
-  MessageFlags
-} = require('discord.js');
+const { PermissionFlagsBits, EmbedBuilder } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder } = require('@discordjs/builders');
+const { MessageFlags } = require('discord.js');
 const https = require('https');
 const links = require('../../config/links.json');
 const webhooks = require('../../config/webhooks.json');

@@ -3,17 +3,8 @@ const {
   StringSelectMenuBuilder,
   SecondaryButtonBuilder
 } = require('@discordjs/builders');
-const {
-  ContainerBuilder,
-  TextDisplayBuilder,
-  MessageFlags,
-  SectionBuilder,
-  SeparatorBuilder,
-    SeparatorSpacingSize,
-    ModalBuilder,
-    TextInputBuilder,
-    TextInputStyle
-} = require('discord.js');
+const { MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize } = require('@discordjs/builders');
 const xenoModel = require('../../models/xenomorph');
 const hostModel = require('../../models/host');
 const userModel = require('../../models/user');

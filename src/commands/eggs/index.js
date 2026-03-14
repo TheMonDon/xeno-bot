@@ -11,14 +11,8 @@ const {
   StringSelectMenuBuilder,
   StringSelectMenuOptionBuilder
 } = require('@discordjs/builders');
-const {
-  ContainerBuilder,
-  TextDisplayBuilder,
-  MessageFlags,
-  SectionBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize
-} = require('discord.js');
+const { MessageFlags } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize } = require('@discordjs/builders');
 const componentsService = require('../../services/components');
 
 const cmd = getCommandConfig('eggs') || { name: 'eggs', description: 'Manage your eggs' };

@@ -1,10 +1,10 @@
+const { MessageFlags } = require('discord.js');
 const {
   ContainerBuilder,
   TextDisplayBuilder,
-  MessageFlags,
   SeparatorBuilder,
   SeparatorSpacingSize
-} = require('discord.js');
+} = require('@discordjs/builders');
 const {
   ActionRowBuilder,
   StringSelectMenuBuilder,

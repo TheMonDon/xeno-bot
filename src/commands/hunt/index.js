@@ -5,14 +5,8 @@ const {
   PrimaryButtonBuilder,
   DangerButtonBuilder,
 } = require('@discordjs/builders');
-const {
-  ContainerBuilder,
-  TextDisplayBuilder,
-  MessageFlags,
-  SectionBuilder,
-  SeparatorBuilder,
-  SeparatorSpacingSize
-} = require('discord.js');
+const { MessageFlags } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder, SectionBuilder, SeparatorBuilder, SeparatorSpacingSize } = require('@discordjs/builders');
 const hostModel = require('../../models/host');
 const userModel = require('../../models/user');
 const guildModel = require('../../models/guild');

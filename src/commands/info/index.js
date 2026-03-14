@@ -82,19 +82,40 @@ module.exports = {
       dbChannels = c && (c.c ?? c['count(*)']) ? c.c || c['count(*)'] : '0';
     } catch (e) { try { logger.warn('Failed querying channels count for info command', { error: e && (e.stack || e) }); } catch (le) { fallbackLogger.warn('Failed logging channels count query error for info command', le && (le.stack || le)); } }
 
-    const embed = new EmbedBuilder()
-      .setTitle('📊 Bot Info')
-      .setColor(require('../../utils/commandsConfig').getCommandsObject().colour || 0xbab25d)
-      .setThumbnail(client && client.user && client.user.displayAvatarURL ? client.user.displayAvatarURL({ size: 512 }) : undefined)
-      .addFields(
-        { name: 'System', value: `OS: ${osVersion}\nNode: ${process.version}\ndiscord.js: ${discordjsVersion}\nPython: ${pythonVersion}\nCPU: ${cpuUsage}\nRAM: ${ramUsage}`, inline: false },
-        { name: 'Tech', value: `Hard uptime: ${fmt(hardUptimeMs)}\nSoft uptime: ${fmt(softUptimeMs)}\nLast update: ${lastUpdate}\nLoops: ${loops}\nShards: ${shardCount}\nShard IDs: ${shardIds}\nGateway ping: ${gatewayPing}\nIntents: ${intents}`, inline: false },
-        { name: 'Global Stats', value: `Guilds (cache): ${guilds}\nDB Profiles: ${dbProfiles}\nUsers (cache): ${dbUsers}\nChannels (cache): ${dbChannels}`, inline: false },
-        { name: 'Client', value: `User: ${botUser}`, inline: false }
-      )
-      .setFooter({ text: client && client.user ? `${client.user.tag}` : 'xeno-bot' })
-      .setTimestamp(new Date());
-    const safeReply = require('../../utils/safeReply');
-    await safeReply(interaction, { embeds: [embed], ephemeral: cmd.ephemeral === true }, { loggerName: 'command:info' });
+    // Build a compact markdown info output using **key**: value style
+    const lines = [];
+    lines.push('**System**:');
+    lines.push(`**OS**: ${osVersion}`);
+    lines.push(`**Node**: ${process.version}`);
+    lines.push(`**discord.js**: ${discordjsVersion}`);
+    lines.push(`**Python**: ${pythonVersion}`);
+    lines.push(`**CPU**: ${cpuUsage}`);
+    lines.push(`**RAM**: ${ramUsage}`);
+    lines.push('');
+    lines.push('**Tech**:');
+    lines.push(`**Hard uptime**: ${fmt(hardUptimeMs)}`);
+    lines.push(`**Soft uptime**: ${fmt(softUptimeMs)}`);
+    lines.push(`**Last update**: ${lastUpdate}`);
+    lines.push(`**Loops**: ${loops}`);
+    lines.push(`**Shards**: ${shardCount}`);
+    lines.push(`**Shard IDs**: ${shardIds}`);
+    lines.push(`**Gateway ping**: ${gatewayPing}`);
+    lines.push(`**Intents**: ${intents}`);
+    lines.push('');
+    lines.push('**Global Stats**:');
+    lines.push(`**Guilds (cache)**: ${clientGuilds}`);
+    lines.push(`**Guilds (db)**: ${guilds}`);
+    lines.push(`**DB Profiles**: ${dbProfiles}`);
+    lines.push(`**Users (cache)**: ${clientUsers}`);
+    lines.push(`**Users (db)**: ${dbUsers}`);
+    lines.push(`**Channels (cache)**: ${clientChannels}`);
+    lines.push(`**Channels (db)**: ${dbChannels}`);
+    lines.push('');
+    lines.push('**Client**:');
+    lines.push(`**User**: ${botUser}`);
+    lines.push(`**Version**: ${pkg.version || 'unknown'}`);
+
+    const content = lines.join('\n');
+    await safeReply(interaction, { content, ephemeral: cmd.ephemeral === true }, { loggerName: 'command:info' });
   }
 };

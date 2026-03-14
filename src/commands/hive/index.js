@@ -1,4 +1,5 @@
-const { ContainerBuilder, TextDisplayBuilder, MessageFlags, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder } = require('discord.js');
+const { MessageFlags } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder, SeparatorBuilder, SeparatorSpacingSize, SectionBuilder, ThumbnailBuilder } = require('@discordjs/builders');
 const { ActionRowBuilder, SecondaryButtonBuilder, PrimaryButtonBuilder, DangerButtonBuilder, StringSelectMenuBuilder } = require('@discordjs/builders');
 const hiveModel = require('../../models/hive');
 const xenomorphModel = require('../../models/xenomorph');

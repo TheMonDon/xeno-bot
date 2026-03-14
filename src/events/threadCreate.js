@@ -1,4 +1,6 @@
-const { ChannelType, ContainerBuilder, TextDisplayBuilder, MessageFlags } = require('discord.js');
+const { ChannelType } = require('discord.js');
+const { ContainerBuilder, TextDisplayBuilder } = require('@discordjs/builders');
+const { MessageFlags } = require('discord.js');
 const config = require('../../config/config.json');
 const utils = require('../utils');
 const logger = utils.logger.get('event:threadCreate');

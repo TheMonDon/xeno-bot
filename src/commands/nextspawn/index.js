@@ -3,9 +3,9 @@ const spawnManager = require('../../spawnManager');
 const {
   ContainerBuilder,
   SectionBuilder,
-  TextDisplayBuilder,
-  MessageFlags
-} = require('discord.js');
+  TextDisplayBuilder
+} = require('@discordjs/builders');
+const { MessageFlags } = require('discord.js');
 const fallbackLogger = require('../../utils/fallbackLogger');
 const safeReply = require('../../utils/safeReply');
 const { buildNoticeV2Payload } = require('../../utils/componentsV2');
