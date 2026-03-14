@@ -30,10 +30,13 @@ async function createUser(discordId, initialData = {}) {
   // set global currency defaults
   dataToStore.currency = Object.assign({}, globalDefaults.currency || { credits: 0 });
   try {
-    const inserted = await db.knex('users').insert({ discord_id: discordId, data: JSON.stringify(dataToStore) });
-    const id = Array.isArray(inserted) ? inserted[0] : inserted;
-    logger.info('Created user', { discordId, id });
-    return getUserByDiscordId(discordId);
+    // Use an idempotent insert to avoid race conditions where two processes
+    // attempt to create the same user simultaneously. For SQLite/Postgres
+    // this will ignore the insert if `discord_id` already exists.
+    await db.knex('users').insert({ discord_id: discordId, data: JSON.stringify(dataToStore) }).onConflict('discord_id').ignore();
+    const created = await getUserByDiscordId(discordId);
+    if (created) logger.info('Created or found existing user', { discordId, id: created.id });
+    return created;
   } catch (err) {
     // Handle potential race condition where another process created the user
     const msg = (err && (err.stack || err.message || '')).toString();
