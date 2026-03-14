@@ -5,6 +5,15 @@
     "es2021": true,
     "jest": true
   },
+  "globals": {
+    "require": "readonly",
+    "module": "writable",
+    "process": "readonly",
+    "console": "readonly",
+    "__dirname": "readonly",
+    "__filename": "readonly",
+    "Buffer": "readonly"
+  },
   "parserOptions": {
     "ecmaVersion": 12,
     "sourceType": "script"

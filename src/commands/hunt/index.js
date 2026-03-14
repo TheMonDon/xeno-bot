@@ -250,7 +250,20 @@ async function performHunt(interaction, client) {
     }
 
     const nowMs = Date.now();
-    const user = await userModel.findOrCreate(userId);
+    let user = await userModel.findOrCreate(userId);
+    if (!user) {
+      // As a fallback, try to create the user explicitly and refetch.
+      try {
+        await userModel.createUser(userId, {});
+        user = await userModel.getUserByDiscordId(userId);
+      } catch (err) {
+        logger.error('Failed to create or fetch user for hunt', { userId, error: err && (err.stack || err) });
+      }
+    }
+    if (!user) {
+      // Give a helpful ephemeral error rather than crashing due to null access.
+      return safeReply(interaction, { content: 'Unable to initialize your user profile right now; please try again shortly.', ephemeral: true }, { loggerName: 'command:hunt' });
+    }
     const userData = user.data || {};
     userData.guilds = userData.guilds || {};
     userData.guilds[guildId] = userData.guilds[guildId] || {};

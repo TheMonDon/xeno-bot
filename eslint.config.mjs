@@ -1,4 +1,3 @@
-import { defineConfig } from 'eslint/config';
 import globals from 'globals';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -13,20 +12,31 @@ const compat = new FlatCompat({
   allConfig: js.configs.all,
 });
 
-export default defineConfig([
+export default [
+  ...compat.extends('eslint:recommended'),
   {
-    extends: compat.extends('eslint:recommended'),
+    files: ['**/*.js'],
+    ignores: ['coverage/**', 'node_modules/**'],
 
     languageOptions: {
       globals: {
         ...globals.node,
+        ...globals.commonjs,
         ...globals.jest,
-        require: 'readonly',
+        Buffer: 'readonly',
+        URL: 'readonly',
+        __dirname: 'readonly',
+        __filename: 'readonly',
+        clearTimeout: 'readonly',
+        console: 'readonly',
         module: 'readonly',
+        process: 'readonly',
+        require: 'readonly',
+        setTimeout: 'readonly',
       },
 
-      ecmaVersion: 12,
-      sourceType: 'module',
+      ecmaVersion: 'latest',
+      sourceType: 'commonjs',
     },
 
     rules: {
@@ -36,4 +46,10 @@ export default defineConfig([
       'no-useless-escape': 'off',
     },
   },
-]);
+  {
+    files: ['**/*.mjs'],
+    languageOptions: {
+      sourceType: 'module',
+    },
+  },
+];

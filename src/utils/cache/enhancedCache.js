@@ -116,9 +116,16 @@ class EnhancedCache {
     // First try synchronous get; note that get may return a Promise when using Redis
     const cached = this.get(key);
     if (cached !== null) {
-      // if get returned a promise (redis path), await it
-      if (cached && typeof cached.then === 'function') return await cached;
-      return cached;
+      if (cached && typeof cached.then === 'function') {
+        // Redis path: await the Promise. If it resolves to null/undefined the
+        // key wasn't in Redis — treat that as a cache miss and fall through to
+        // computeFn so the DB is actually queried.
+        const resolved = await cached;
+        if (resolved !== null && resolved !== undefined) return resolved;
+        // Fall through to compute below.
+      } else {
+        return cached;
+      }
     }
 
     // Prevent stampede in-process

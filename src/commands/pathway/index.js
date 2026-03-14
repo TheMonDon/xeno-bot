@@ -8,17 +8,16 @@ const {
   SecondaryButtonBuilder,
   PrimaryButtonBuilder,
   StringSelectMenuBuilder,
-  StringSelectMenuOptionBuilder
+  StringSelectMenuOptionBuilder,
+  ContainerBuilder,
+  TextDisplayBuilder,
+  SeparatorBuilder,
+  SeparatorSpacingSize
 } = require('@discordjs/builders');
 // Mark builders that may be unused in some environments to satisfy linter
 void PrimaryButtonBuilder;
 const {
-  ContainerBuilder,
-  TextDisplayBuilder,
-  MessageFlags,
-  
-  SeparatorBuilder,
-  SeparatorSpacingSize
+  MessageFlags
 } = require('discord.js');
 
 const cmd = getCommandConfig('pathway') || { name: 'pathway', description: 'View xenomorph evolution pathways' };

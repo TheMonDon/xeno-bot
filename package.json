@@ -20,8 +20,8 @@
     "test": "jest --runInBand",
     "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .js",
-    "lint:fix": "eslint --fix src --ext .js"
-    ,"redis:status": "node bin/check-redis.js"
+    "lint:fix": "eslint --fix src --ext .js",
+    "redis:status": "node bin/check-redis.js"
   },
   "dependencies": {
     "@discordjs/builders": "^2.0.0-dev.1771286636-ccce987fa",

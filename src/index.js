@@ -7,6 +7,16 @@ try {
   /* ignore if module-alias not installed */ void 0;
 }
 require('dotenv').config();
+// Ensure compatibility with different @discordjs/builders versions by
+// providing a safe fallback for SeparatorSpacingSize if missing.
+try {
+  const builders = require('@discordjs/builders');
+  if (builders && !builders.SeparatorSpacingSize) {
+    builders.SeparatorSpacingSize = { Small: 1, Medium: 2, Large: 3 };
+  }
+} catch (e) {
+  // If builders can't be loaded yet or not installed, ignore and continue.
+}
 const utils = require('./utils');
 const baseLogger = utils.logger;
 const logger = baseLogger.get('index');
